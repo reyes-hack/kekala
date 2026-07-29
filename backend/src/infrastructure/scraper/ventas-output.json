@@ -1,0 +1,195 @@
+{
+  "fecha": "2026-07-28",
+  "sucursales": [
+    {
+      "branchCode": "AMERICAS_VER",
+      "branchName": "Américas Veracruz",
+      "kpis": {
+        "ordenes": 77,
+        "ventas": 8670,
+        "ticketPromedio": 112.6
+      },
+      "productosVendidos": [
+        {
+          "productCode": "CHOCO_CROCANTE",
+          "productName": "Choco Crocante",
+          "ordenes": 18,
+          "cantidad": 22,
+          "ventas": 1760
+        },
+        {
+          "productCode": "CHOCOLATUDO",
+          "productName": "Chocolatudo",
+          "ordenes": 3,
+          "cantidad": 3,
+          "ventas": 300
+        },
+        {
+          "productCode": "DULCE_CROCANTE",
+          "productName": "Dulce Crocante",
+          "ordenes": 6,
+          "cantidad": 6,
+          "ventas": 480
+        },
+        {
+          "productCode": "ESPECIAL_FLAT",
+          "productName": "Especial Flat",
+          "ordenes": 1,
+          "cantidad": 1,
+          "ventas": 65
+        },
+        {
+          "productCode": "ESPECIAL_ORIGINAL",
+          "productName": "Especial Original",
+          "ordenes": 28,
+          "cantidad": 38,
+          "ventas": 3160
+        },
+        {
+          "productCode": "LECHE_CRISPI",
+          "productName": "Leche Crispi",
+          "ordenes": 2,
+          "cantidad": 2,
+          "ventas": 130
+        },
+        {
+          "productCode": "PISTACHE",
+          "productName": "Pistache",
+          "ordenes": 7,
+          "cantidad": 7,
+          "ventas": 595
+        },
+        {
+          "productCode": "TRADICIONAL_FLAT",
+          "productName": "Tradicional Flat",
+          "ordenes": 1,
+          "cantidad": 1,
+          "ventas": 55
+        },
+        {
+          "productCode": "TRADICIONAL_ORIGINAL",
+          "productName": "Tradicional Original",
+          "ordenes": 13,
+          "cantidad": 14,
+          "ventas": 1050
+        },
+        {
+          "productCode": "TRUFELLA",
+          "productName": "Trufella",
+          "ordenes": 6,
+          "cantidad": 7,
+          "ventas": 560
+        },
+        {
+          "productCode": "TURBO_ORIGINAL",
+          "productName": "Turbo Original",
+          "ordenes": 5,
+          "cantidad": 5,
+          "ventas": 515
+        }
+      ]
+    },
+    {
+      "branchCode": "ELDORADO_VER",
+      "branchName": "El Dorado Veracruz",
+      "kpis": {
+        "ordenes": 74,
+        "ventas": 10435,
+        "ticketPromedio": 141.01
+      },
+      "productosVendidos": [
+        {
+          "productCode": "AGUA_NATURAL_600_ML",
+          "productName": "Agua Natural 600 ml",
+          "ordenes": 2,
+          "cantidad": 2,
+          "ventas": 40
+        },
+        {
+          "productCode": "CHOCO_CROCANTE",
+          "productName": "Choco Crocante",
+          "ordenes": 5,
+          "cantidad": 6,
+          "ventas": 480
+        },
+        {
+          "productCode": "CHOCOLATUDO",
+          "productName": "Chocolatudo",
+          "ordenes": 6,
+          "cantidad": 8,
+          "ventas": 800
+        },
+        {
+          "productCode": "DULCE_CROCANTE",
+          "productName": "Dulce Crocante",
+          "ordenes": 4,
+          "cantidad": 4,
+          "ventas": 320
+        },
+        {
+          "productCode": "ESPECIAL_FLAT",
+          "productName": "Especial Flat",
+          "ordenes": 8,
+          "cantidad": 8,
+          "ventas": 520
+        },
+        {
+          "productCode": "ESPECIAL_ORIGINAL",
+          "productName": "Especial Original",
+          "ordenes": 41,
+          "cantidad": 62,
+          "ventas": 5095
+        },
+        {
+          "productCode": "FRESADO",
+          "productName": "Fresado",
+          "ordenes": 2,
+          "cantidad": 2,
+          "ventas": 200
+        },
+        {
+          "productCode": "FRESH",
+          "productName": "Fresh",
+          "ordenes": 2,
+          "cantidad": 2,
+          "ventas": 130
+        },
+        {
+          "productCode": "LECHE_CRISPI",
+          "productName": "Leche Crispi",
+          "ordenes": 2,
+          "cantidad": 3,
+          "ventas": 195
+        },
+        {
+          "productCode": "PISTACHE",
+          "productName": "Pistache",
+          "ordenes": 5,
+          "cantidad": 5,
+          "ventas": 425
+        },
+        {
+          "productCode": "TRADICIONAL_FLAT",
+          "productName": "Tradicional Flat",
+          "ordenes": 7,
+          "cantidad": 8,
+          "ventas": 440
+        },
+        {
+          "productCode": "TRADICIONAL_ORIGINAL",
+          "productName": "Tradicional Original",
+          "ordenes": 8,
+          "cantidad": 10,
+          "ventas": 750
+        },
+        {
+          "productCode": "TRUFELLA",
+          "productName": "Trufella",
+          "ordenes": 11,
+          "cantidad": 13,
+          "ventas": 1040
+        }
+      ]
+    }
+  ]
+}

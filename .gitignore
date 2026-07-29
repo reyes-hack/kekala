@@ -1,0 +1,26 @@
+# Dependencias
+node_modules/
+
+# Entornos y Secretos
+.env
+.env.*
+
+# Logs y Debug
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+debug-*.txt
+
+# Compilados
+dist/
+build/
+out/
+
+# Archivos de Agente IA (Documentos internos)
+REGLAS-AGENTE-IA.md
+
+# Sistema Operativo
+.DS_Store
+Thumbs.db
