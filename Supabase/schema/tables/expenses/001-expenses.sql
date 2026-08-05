@@ -1,157 +1,28 @@
-BEGIN;
+-- Eliminar tabla si existe para recrear limpia
+DROP TABLE IF EXISTS public.expenses CASCADE;
 
-CREATE TABLE IF NOT EXISTS public.expenses (
-
-    ------------------------------------------------------------------
-    -- Primary Key
-    ------------------------------------------------------------------
-
-    id UUID PRIMARY KEY
-        DEFAULT gen_random_uuid(),
-
-    ------------------------------------------------------------------
-    -- Organización
-    ------------------------------------------------------------------
-
-    organization_id UUID NOT NULL,
-
-    branch_id UUID NOT NULL,
-
-    ------------------------------------------------------------------
-    -- Identificación
-    ------------------------------------------------------------------
-
-    expense_number TEXT NOT NULL,
-
-    ------------------------------------------------------------------
-    -- Relaciones
-    ------------------------------------------------------------------
-
-    category_id UUID NOT NULL,
-
-    establishment_id UUID NOT NULL,
-
-    payment_method_id UUID NOT NULL,
-
-    supplier_id UUID,
-
-    created_by UUID NOT NULL,
-
-    ------------------------------------------------------------------
-    -- Información financiera
-    ------------------------------------------------------------------
-
-    currency_code CHAR(3) NOT NULL
-        DEFAULT 'MXN',
-
-    subtotal NUMERIC(12,2) NOT NULL
-        DEFAULT 0,
-
-    tax_amount NUMERIC(12,2) NOT NULL
-        DEFAULT 0,
-
-    total_amount NUMERIC(12,2) NOT NULL
-        DEFAULT 0,
-
-    ------------------------------------------------------------------
-    -- Información del gasto
-    ------------------------------------------------------------------
-
-    expense_date DATE NOT NULL,
-
-    description TEXT,
-
-    notes TEXT,
-
-    metadata JSONB NOT NULL
-        DEFAULT '{}'::jsonb,
-
-    ------------------------------------------------------------------
-    -- Auditoría
-    ------------------------------------------------------------------
-
-    created_at TIMESTAMPTZ NOT NULL
-        DEFAULT NOW(),
-
-    updated_at TIMESTAMPTZ NOT NULL
-        DEFAULT NOW(),
-
-    ------------------------------------------------------------------
-    -- Foreign Keys
-    ------------------------------------------------------------------
-
-    CONSTRAINT fk_expenses_organization
-        FOREIGN KEY (organization_id)
-        REFERENCES public.organizations(id)
-        ON UPDATE CASCADE
-        ON DELETE RESTRICT,
-
-    CONSTRAINT fk_expenses_branch
-        FOREIGN KEY (branch_id)
-        REFERENCES public.branches(id)
-        ON UPDATE CASCADE
-        ON DELETE RESTRICT,
-
-    CONSTRAINT fk_expenses_category
-        FOREIGN KEY (category_id)
-        REFERENCES public.catalog_values(id)
-        ON UPDATE CASCADE
-        ON DELETE RESTRICT,
-
-    CONSTRAINT fk_expenses_establishment
-        FOREIGN KEY (establishment_id)
-        REFERENCES public.catalog_values(id)
-        ON UPDATE CASCADE
-        ON DELETE RESTRICT,
-
-    CONSTRAINT fk_expenses_payment_method
-        FOREIGN KEY (payment_method_id)
-        REFERENCES public.catalog_values(id)
-        ON UPDATE CASCADE
-        ON DELETE RESTRICT,
-
-    CONSTRAINT fk_expenses_supplier
-        FOREIGN KEY (supplier_id)
-        REFERENCES public.suppliers(id)
-        ON UPDATE CASCADE
-        ON DELETE SET NULL,
-
-    CONSTRAINT fk_expenses_created_by
-        FOREIGN KEY (created_by)
-        REFERENCES public.profiles(id)
-        ON UPDATE CASCADE
-        ON DELETE RESTRICT,
-
-    ------------------------------------------------------------------
-    -- Restricciones
-    ------------------------------------------------------------------
-
-    CONSTRAINT uq_expense_number
-        UNIQUE (
-            organization_id,
-            expense_number
-        ),
-
-    CONSTRAINT chk_expenses_subtotal
-        CHECK (
-            subtotal >= 0
-        ),
-
-    CONSTRAINT chk_expenses_tax
-        CHECK (
-            tax_amount >= 0
-        ),
-
-    CONSTRAINT chk_expenses_total
-        CHECK (
-            total_amount >= 0
-        ),
-
-    CONSTRAINT chk_expenses_metadata
-        CHECK (
-            jsonb_typeof(metadata) = 'object'
-        )
-
+-- Crear tabla de Gastos
+CREATE TABLE public.expenses (
+    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    branch_id UUID NOT NULL REFERENCES public.branches(id) ON DELETE CASCADE,
+    date DATE NOT NULL,
+    category TEXT NOT NULL,
+    concept TEXT NOT NULL,
+    establishment TEXT NOT NULL,
+    amount NUMERIC(10, 2) NOT NULL,
+    folio TEXT,
+    payment_method TEXT NOT NULL,
+    responsible TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-COMMIT;
+-- Habilitar RLS
+ALTER TABLE public.expenses ENABLE ROW LEVEL SECURITY;
+
+-- Políticas de RLS (Permitir todo temporalmente o para acceso anónimo/público)
+CREATE POLICY "Allow all operations on expenses"
+    ON public.expenses
+    FOR ALL
+    USING (true)
+    WITH CHECK (true);

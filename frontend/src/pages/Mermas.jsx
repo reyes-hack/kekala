@@ -1,0 +1,451 @@
+import React, { useState, useEffect } from 'react';
+import { supabase } from '../lib/supabaseClient';
+import { useBranchStore } from '../store/useBranchStore';
+import { Plus, Download, PackageOpen, Trash2, Calendar, FileText, Hash, AlertTriangle, Clock, Box } from 'lucide-react';
+import * as XLSX from 'xlsx';
+import { NeoSelect } from '../components/NeoSelect';
+
+import { NeoDatePicker } from '../components/NeoDatePicker';
+
+export function Mermas() {
+// ... (saltando las partes que no cambian, pero oh espera, tengo que reemplazar líneas exactas)
+  const { activeBranch } = useBranchStore();
+  const [mermas, setMermas] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  
+  // Combobox Data
+  const [products, setProducts] = useState([]);
+  const [reasons, setReasons] = useState([]);
+  const [flavors, setFlavors] = useState([]); // This could be populated dynamically later
+  
+  // Status ID for 'APPROVED'
+  const [approvedStatusId, setApprovedStatusId] = useState(null);
+  const [currentUser, setCurrentUser] = useState(null);
+
+  const [monthFilter, setMonthFilter] = useState(new Date().toISOString().slice(0, 7));
+
+  const [formData, setFormData] = useState({
+    date: new Date().toISOString().split('T')[0],
+    product: '',
+    flavor: '',
+    shift: '',
+    quantity: '',
+    batch: '',
+    reason: '',
+    notes: ''
+  });
+
+  const shifts = ["TURNO MAÑANA", "TURNO TARDE"];
+
+  useEffect(() => {
+    if (activeBranch) {
+      loadData();
+    }
+  }, [activeBranch, monthFilter]);
+
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      // 1. Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      setCurrentUser(user);
+
+      // 2. Load Active Products for the Combobox
+      const { data: prods } = await supabase
+        .from('products')
+        .select('id, name')
+        .eq('is_active', true);
+      
+      setProducts((prods || []).map(p => ({ label: p.name, value: p.id })));
+
+      // 3. Load Reasons
+      const { data: rsns } = await supabase
+        .from('catalog_values')
+        .select('id, name')
+        .eq('catalog_types(code)', 'WASTE_REASON')
+        .eq('is_active', true);
+      
+      // We need to fetch via a join or 2 queries because of PostgREST limits sometimes.
+      // Let's do it safely:
+      const { data: catalogTypes } = await supabase.from('catalog_types').select('id, code').in('code', ['WASTE_REASON', 'WASTE_STATUS']);
+      
+      if (catalogTypes) {
+        const reasonType = catalogTypes.find(c => c.code === 'WASTE_REASON');
+        const statusType = catalogTypes.find(c => c.code === 'WASTE_STATUS');
+
+        if (reasonType) {
+          const { data: reasonVals } = await supabase.from('catalog_values').select('id, name').eq('catalog_type_id', reasonType.id).eq('is_active', true);
+          setReasons((reasonVals || []).map(r => ({ label: r.name, value: r.id })));
+        }
+
+        if (statusType) {
+          const { data: statusVals } = await supabase.from('catalog_values').select('id, code').eq('catalog_type_id', statusType.id).eq('code', 'APPROVED');
+          if (statusVals && statusVals.length > 0) setApprovedStatusId(statusVals[0].id);
+        }
+      }
+
+      // 4. Load Mermas (Waste Records + Items)
+      const startDate = `${monthFilter}-01`;
+      const endDate = new Date(monthFilter.split('-')[0], monthFilter.split('-')[1], 0).toISOString().split('T')[0];
+
+      const { data: records, error } = await supabase
+        .from('waste_records')
+        .select(`
+          id, waste_number, waste_date, metadata, notes,
+          reason:catalog_values!reason_id(name),
+          waste_items (
+            id, quantity, product:products(name)
+          )
+        `)
+        .eq('branch_id', activeBranch.id)
+        .gte('waste_date', startDate)
+        .lte('waste_date', endDate)
+        .order('waste_date', { ascending: false });
+
+      if (error) throw error;
+      
+      // Flatten data for table
+      const formattedMermas = [];
+      records?.forEach(record => {
+        record.waste_items?.forEach(item => {
+          formattedMermas.push({
+            id: item.id,
+            date: record.waste_date,
+            number: record.waste_number,
+            product_name: item.product?.name || 'Desconocido',
+            flavor: record.metadata?.flavor || '-',
+            shift: record.metadata?.shift || '-',
+            batch: record.metadata?.batch_number || '-',
+            quantity: item.quantity,
+            reason: record.reason?.name || '-',
+            notes: record.notes
+          });
+        });
+      });
+
+      setMermas(formattedMermas);
+
+    } catch (error) {
+      console.error('Error al cargar mermas:', error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!formData.product || !formData.quantity || !formData.reason || !formData.shift) {
+       alert("Por favor llena todos los campos obligatorios.");
+       return;
+    }
+    
+    setSaving(true);
+    try {
+      // 1. Generate a waste number
+      const wasteNum = `MERMA-${new Date().getTime().toString().slice(-6)}`;
+
+      // 2. Insert into waste_records
+      const { data: record, error: recordError } = await supabase
+        .from('waste_records')
+        .insert({
+          organization_id: activeBranch.organization_id,
+          branch_id: activeBranch.id,
+          waste_number: wasteNum,
+          reported_by: currentUser.id,
+          status_id: approvedStatusId,
+          reason_id: formData.reason,
+          waste_date: formData.date,
+          metadata: {
+            flavor: formData.flavor,
+            shift: formData.shift,
+            batch_number: formData.batch
+          },
+          notes: formData.notes
+        })
+        .select()
+        .single();
+
+      if (recordError) throw recordError;
+
+      // 3. Insert into waste_items (This triggers inventory deduction)
+      const { error: itemsError } = await supabase
+        .from('waste_items')
+        .insert({
+          organization_id: activeBranch.organization_id,
+          waste_record_id: record.id,
+          product_id: formData.product,
+          quantity: formData.quantity,
+          unit_cost_at_time: 0,
+          subtotal_loss: 0
+        });
+
+      if (itemsError) throw itemsError;
+
+      setFormData({
+        date: new Date().toISOString().split('T')[0],
+        product: '',
+        flavor: '',
+        shift: '',
+        quantity: '',
+        batch: '',
+        reason: '',
+        notes: ''
+      });
+      loadData();
+    } catch (error) {
+      console.error('Error registrando merma:', error);
+      alert('Error registrando merma: ' + error.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const exportExcel = () => {
+    if (mermas.length === 0) return;
+
+    const dataToExport = mermas.map(m => ({
+      'FECHA': m.date,
+      'FOLIO': m.number,
+      'TIPO DE PALETA / PRODUCTO': m.product_name,
+      'SABOR': m.flavor,
+      'TURNO': m.shift,
+      'CANTIDAD DAÑADA': m.quantity,
+      'LOTE': m.batch,
+      'MOTIVO': m.reason,
+      'NOTAS': m.notes
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Mermas');
+    XLSX.writeFile(workbook, `Mermas_${activeBranch?.name.replace(/ /g, '_')}_${monthFilter}.xlsx`);
+  };
+
+  const totalMermas = mermas.reduce((sum, m) => sum + Number(m.quantity), 0);
+
+  if (!activeBranch) return <div style={{textAlign: 'center', padding: '40px'}}>Selecciona una sucursal</div>;
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '30px', padding: '0 20px', maxWidth: '1400px', margin: '0 auto' }}>
+      
+      {/* HEADER / TITULO */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+         <div style={{ background: 'var(--accent-gradient)', padding: '12px', borderRadius: '16px', color: 'white', boxShadow: 'var(--neo-shadow-sm)' }}>
+           <Trash2 size={32} />
+         </div>
+         <div>
+           <h1 style={{ margin: 0, color: 'var(--text-primary)', fontSize: '1.8rem', fontWeight: 800 }}>Control de Mermas</h1>
+           <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '0.95rem' }}>Registro de producto dañado para conciliación.</p>
+         </div>
+      </div>
+
+      {/* FORMULARIO DE REGISTRO */}
+      <div className="neo-surface" style={{ padding: '0', borderRadius: '16px', overflow: 'hidden' }}>
+        <div style={{ background: 'var(--color-secondary)', padding: '20px 24px', display: 'flex', alignItems: 'center', gap: '12px', color: 'white' }}>
+          <div style={{ background: 'rgba(255,255,255,0.2)', padding: '8px', borderRadius: '12px' }}>
+            <AlertTriangle size={24} />
+          </div>
+          <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 600, letterSpacing: '0.5px' }}>
+            Registrar Paletas Defectuosas
+          </h2>
+        </div>
+        
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '24px', padding: '24px' }}>
+          
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px' }}>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <label style={{ fontSize: '0.85rem', color: 'var(--text-primary)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Calendar size={16} style={{color: 'var(--primary-color)'}}/> Fecha <span style={{color: 'var(--status-danger)'}}>*</span>
+              </label>
+              <NeoDatePicker 
+                name="date" 
+                value={formData.date} 
+                onChange={handleInputChange} 
+                required 
+              />
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', gridColumn: 'span 2' }}>
+              <label style={{ fontSize: '0.85rem', color: 'var(--text-primary)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <PackageOpen size={16} style={{color: 'var(--primary-color)'}}/> Tipo de Paleta <span style={{color: 'var(--status-danger)'}}>*</span>
+              </label>
+              <NeoSelect 
+                name="product" 
+                value={formData.product} 
+                onChange={handleInputChange} 
+                options={products} 
+                placeholder="Ej. ORIGINAL" 
+                required 
+              />
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <label style={{ fontSize: '0.85rem', color: 'var(--text-primary)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Box size={16} style={{color: 'var(--primary-color)'}}/> Sabor
+              </label>
+              <NeoSelect 
+                name="flavor" 
+                value={formData.flavor} 
+                onChange={handleInputChange} 
+                options={["COCO", "YOGURT GRIEGO", "NUEZ", "FRESA", "MAMEY"]} 
+                placeholder="Ej. COCO" 
+              />
+            </div>
+            
+          </div>
+
+          <div style={{ height: '1px', background: 'rgba(0,0,0,0.05)', margin: '4px 0' }}></div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px' }}>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <label style={{ fontSize: '0.85rem', color: 'var(--text-primary)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Clock size={16} style={{color: 'var(--primary-color)'}}/> Turno <span style={{color: 'var(--status-danger)'}}>*</span>
+              </label>
+              <NeoSelect 
+                name="shift" 
+                value={formData.shift} 
+                onChange={handleInputChange} 
+                options={shifts} 
+                placeholder="Seleccionar Turno" 
+                required 
+              />
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <label style={{ fontSize: '0.85rem', color: 'var(--text-primary)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Hash size={16} style={{color: 'var(--primary-color)'}}/> Lote
+              </label>
+              <input type="text" name="batch" value={formData.batch} onChange={handleInputChange} className="neo-input" placeholder="Opcional" style={{ padding: '12px 16px', borderRadius: '12px', background: 'var(--background-color)', border: '1px solid var(--border-color)' }} />
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', gridColumn: 'span 2' }}>
+              <label style={{ fontSize: '0.85rem', color: 'var(--text-primary)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <FileText size={16} style={{color: 'var(--primary-color)'}}/> Motivo / Razón <span style={{color: 'var(--status-danger)'}}>*</span>
+              </label>
+              <NeoSelect 
+                name="reason" 
+                value={formData.reason} 
+                onChange={handleInputChange} 
+                options={reasons} 
+                placeholder="Ej. Daño Físico" 
+                required 
+              />
+            </div>
+
+          </div>
+
+          {/* TOTAL HIGHLIGHT ROW */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px', padding: '20px', background: 'rgba(245, 158, 11, 0.05)', border: '1px solid rgba(245, 158, 11, 0.2)', borderRadius: '16px', flexWrap: 'wrap', gap: '20px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1, minWidth: '250px' }}>
+              <label style={{ fontSize: '0.9rem', color: '#d97706', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '6px', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                <AlertTriangle size={18} /> Cantidad Dañada <span style={{color: 'var(--status-danger)'}}>*</span>
+              </label>
+              <div style={{ position: 'relative' }}>
+                <span style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', fontSize: '1.2rem', fontWeight: 800, color: '#d97706' }}>#</span>
+                <input type="number" name="quantity" step="1" min="1" required value={formData.quantity} onChange={handleInputChange} className="neo-input" placeholder="0" style={{ padding: '16px 16px 16px 36px', borderRadius: '12px', background: 'white', border: '2px solid rgba(245, 158, 11, 0.3)', fontSize: '1.2rem', fontWeight: 800, color: '#d97706', width: '100%', boxShadow: '0 4px 12px rgba(245, 158, 11, 0.1)' }} />
+              </div>
+            </div>
+
+            <button type="submit" className="neo-btn neo-btn-primary" disabled={saving} style={{ padding: '16px 40px', fontSize: '1.1rem', fontWeight: 700, borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '10px', boxShadow: '0 8px 20px rgba(30, 58, 138, 0.3)', transition: 'all 0.3s ease' }}>
+              {saving ? <Trash2 className="spin" size={22} /> : <Plus size={22} />} 
+              {saving ? 'Registrando...' : 'Registrar Merma'}
+            </button>
+          </div>
+
+        </form>
+      </div>
+
+      {/* CONTROLES Y RESUMEN */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '20px' }}>
+        <div className="neo-surface" style={{ display: 'flex', gap: '16px', alignItems: 'center', padding: '16px 24px', borderRadius: '20px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{ background: 'var(--accent-gradient)', padding: '10px', borderRadius: '12px', color: 'white' }}>
+              <Calendar size={20} />
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px' }}>
+                Mes de Consulta
+              </label>
+              <input 
+                type="month" 
+                value={monthFilter} 
+                onChange={(e) => setMonthFilter(e.target.value)} 
+                style={{ border: 'none', background: 'transparent', outline: 'none', color: 'var(--text-primary)', fontWeight: 600, fontSize: '1.05rem', cursor: 'pointer' }}
+              />
+            </div>
+          </div>
+          <div style={{ width: '1px', height: '40px', background: 'rgba(0,0,0,0.1)', margin: '0 8px' }}></div>
+          <button onClick={exportExcel} className="neo-btn" style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#10b981', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.2)', padding: '12px 24px', fontWeight: 600 }}>
+            <Download size={18} /> Exportar Reporte
+          </button>
+        </div>
+        
+        <div className="neo-surface fade-in" style={{ padding: '16px 32px', borderRadius: '20px', background: 'linear-gradient(135deg, var(--surface-color) 0%, rgba(245, 158, 11, 0.05) 100%)', border: '1px solid rgba(245, 158, 11, 0.2)', display: 'flex', alignItems: 'center', gap: '20px', boxShadow: 'var(--neo-shadow-sm)' }}>
+          <div style={{ background: 'rgba(245, 158, 11, 0.1)', padding: '12px', borderRadius: '12px' }}>
+            <AlertTriangle size={28} style={{ color: '#d97706' }} />
+          </div>
+          <div>
+            <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 600, marginBottom: '2px' }}>Total Mermas ({monthFilter})</div>
+            <div style={{ fontSize: '1.8rem', fontWeight: 800, color: '#d97706' }}>
+              {totalMermas} Paletas
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* TABLA DE MERMAS */}
+      <div className="neo-surface" style={{ padding: '24px', borderRadius: '16px' }}>
+        {loading ? (
+          <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>Cargando mermas del mes...</div>
+        ) : mermas.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--text-muted)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
+            <div style={{ background: 'var(--background-color)', padding: '20px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Trash2 size={48} style={{ opacity: 0.3 }} />
+            </div>
+            <h3 style={{ margin: 0, fontSize: '1.2rem', color: 'var(--text-secondary)' }}>Sin mermas registradas</h3>
+            <p style={{ margin: 0, fontSize: '0.9rem' }}>Excelente trabajo. No hay paletas defectuosas en este mes.</p>
+          </div>
+        ) : (
+          <div className="neo-table-container">
+            <table className="neo-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr>
+                  <th style={{ padding: '14px 16px', textAlign: 'left', background: 'var(--color-secondary)', color: 'white', fontWeight: 600, letterSpacing: '0.5px', borderTopLeftRadius: '12px' }}>FECHA</th>
+                  <th style={{ padding: '14px 16px', textAlign: 'left', background: 'var(--color-secondary)', color: 'white', fontWeight: 600, letterSpacing: '0.5px' }}>TIPO DE PALETA</th>
+                  <th style={{ padding: '14px 16px', textAlign: 'left', background: 'var(--color-secondary)', color: 'white', fontWeight: 600, letterSpacing: '0.5px' }}>SABOR</th>
+                  <th style={{ padding: '14px 16px', textAlign: 'left', background: 'var(--color-secondary)', color: 'white', fontWeight: 600, letterSpacing: '0.5px' }}>TURNO</th>
+                  <th style={{ padding: '14px 16px', textAlign: 'center', background: 'var(--color-secondary)', color: 'white', fontWeight: 600, letterSpacing: '0.5px' }}>CANTIDAD</th>
+                  <th style={{ padding: '14px 16px', textAlign: 'left', background: 'var(--color-secondary)', color: 'white', fontWeight: 600, letterSpacing: '0.5px' }}>LOTE</th>
+                  <th style={{ padding: '14px 16px', textAlign: 'left', background: 'var(--color-secondary)', color: 'white', fontWeight: 600, letterSpacing: '0.5px', borderTopRightRadius: '12px' }}>MOTIVO</th>
+                </tr>
+              </thead>
+              <tbody>
+                {mermas.map((m, idx) => (
+                  <tr key={idx} style={{ background: idx % 2 === 0 ? 'white' : '#f8fafc', borderBottom: '1px solid rgba(0,0,0,0.05)' }}>
+                    <td style={{ padding: '12px', fontSize: '0.9rem' }}>{new Date(m.date + 'T12:00:00').toLocaleDateString('es-MX', {day: '2-digit', month: '2-digit', year: '2-digit'})}</td>
+                    <td style={{ padding: '12px', fontSize: '0.9rem', fontWeight: 600 }}>{m.product_name}</td>
+                    <td style={{ padding: '12px', fontSize: '0.9rem' }}>{m.flavor}</td>
+                    <td style={{ padding: '12px', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>{m.shift}</td>
+                    <td style={{ padding: '12px', fontSize: '1rem', fontWeight: 800, color: '#d97706', textAlign: 'center' }}>
+                      {m.quantity}
+                    </td>
+                    <td style={{ padding: '12px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>{m.batch}</td>
+                    <td style={{ padding: '12px', fontSize: '0.85rem' }}>{m.reason}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
