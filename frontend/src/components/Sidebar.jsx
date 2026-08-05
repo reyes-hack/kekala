@@ -25,6 +25,7 @@ export function Sidebar() {
     { id: 'inventario', path: '/inventario', label: 'Inventario', icon: PackageSearch },
     { id: 'ventas', path: '/ventas', label: 'Ventas (POS)', icon: ShoppingCart },
     { id: 'recetario', path: '/recetario', label: 'Recetario (BOM)', icon: ShoppingCart },
+    { id: 'auditoria', path: '/auditoria', label: 'Auditoría', icon: PackageSearch },
     { id: 'gastos', path: '/gastos', label: 'Compras y Gastos', icon: Banknote },
     { id: 'mermas', path: '/mermas', label: 'Mermas', icon: Trash2 },
   ];

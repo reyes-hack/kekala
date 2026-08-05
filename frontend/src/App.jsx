@@ -1,8 +1,10 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { MainLayout } from './components/MainLayout';
+import { Dashboard } from './pages/Dashboard';
 import { Inventory } from './pages/Inventory';
 import { Sucursales } from './pages/Sucursales';
+import { Auditoria } from './pages/Auditoria';
 import { Sales } from './pages/Sales';
 import { Recetario } from './pages/Recetario';
 import { Purchases } from './pages/Purchases';
@@ -19,11 +21,12 @@ function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<MainLayout />}>
-          <Route index element={<Navigate to="/inventario" replace />} />
+          <Route index element={<Dashboard />} />
           <Route path="inventario" element={<Inventory />} />
           <Route path="sucursales" element={<Sucursales />} />
           <Route path="ventas" element={<Sales />} />
           <Route path="recetario" element={<Recetario />} />
+          <Route path="auditoria" element={<Auditoria />} />
           <Route path="gastos" element={<Purchases />} />
           <Route path="mermas" element={<Mermas />} />
           <Route path="*" element={<Navigate to="/inventario" replace />} />

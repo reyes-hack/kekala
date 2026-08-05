@@ -35,6 +35,8 @@ export function Mermas() {
     reason: '',
     notes: ''
   });
+  const [photoFile, setPhotoFile] = useState(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   const shifts = ["TURNO MAÑANA", "TURNO TARDE"];
 
@@ -150,6 +152,29 @@ export function Mermas() {
       // 1. Generate a waste number
       const wasteNum = `MERMA-${new Date().getTime().toString().slice(-6)}`;
 
+      let photoUrl = null;
+
+      // 1.5 Subir Foto a Storage si existe
+      if (photoFile) {
+        setUploadingPhoto(true);
+        const fileExt = photoFile.name.split('.').pop();
+        const fileName = `${wasteNum}_${Math.random()}.${fileExt}`;
+        const filePath = `${activeBranch.id}/${fileName}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('evidence')
+          .upload(filePath, photoFile);
+
+        if (uploadError) {
+          console.error("Error subiendo foto:", uploadError);
+          alert("La merma se guardará, pero hubo un error subiendo la foto.");
+        } else {
+          const { data: publicUrlData } = supabase.storage.from('evidence').getPublicUrl(filePath);
+          photoUrl = publicUrlData.publicUrl;
+        }
+        setUploadingPhoto(false);
+      }
+
       // 2. Insert into waste_records
       const { data: record, error: recordError } = await supabase
         .from('waste_records')
@@ -164,7 +189,8 @@ export function Mermas() {
           metadata: {
             flavor: formData.flavor,
             shift: formData.shift,
-            batch_number: formData.batch
+            batch_number: formData.batch,
+            photo_url: photoUrl
           },
           notes: formData.notes
         })
@@ -197,6 +223,7 @@ export function Mermas() {
         reason: '',
         notes: ''
       });
+      setPhotoFile(null);
       loadData();
     } catch (error) {
       console.error('Error registrando merma:', error);
@@ -326,7 +353,7 @@ export function Mermas() {
               <input type="text" name="batch" value={formData.batch} onChange={handleInputChange} className="neo-input" placeholder="Opcional" style={{ padding: '12px 16px', borderRadius: '12px', background: 'var(--background-color)', border: '1px solid var(--border-color)' }} />
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', gridColumn: 'span 2' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               <label style={{ fontSize: '0.85rem', color: 'var(--text-primary)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <FileText size={16} style={{color: 'var(--primary-color)'}}/> Motivo / Razón <span style={{color: 'var(--status-danger)'}}>*</span>
               </label>
@@ -338,6 +365,23 @@ export function Mermas() {
                 placeholder="Ej. Daño Físico" 
                 required 
               />
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <label style={{ fontSize: '0.85rem', color: 'var(--text-primary)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <PackageOpen size={16} style={{color: 'var(--primary-color)'}}/> Evidencia Fotográfica (Opcional)
+              </label>
+              <div style={{ position: 'relative', width: '100%', height: '44px', display: 'flex', alignItems: 'center', background: 'var(--background-color)', border: '1px dashed var(--text-muted)', borderRadius: '12px', padding: '0 16px', cursor: 'pointer', overflow: 'hidden' }}>
+                <input 
+                  type="file" 
+                  accept="image/*"
+                  onChange={(e) => setPhotoFile(e.target.files[0])}
+                  style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', opacity: 0, cursor: 'pointer' }}
+                />
+                <span style={{ fontSize: '0.9rem', color: photoFile ? 'var(--status-ok)' : 'var(--text-muted)', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {photoFile ? photoFile.name : 'Subir o tomar foto...'}
+                </span>
+              </div>
             </div>
 
           </div>
