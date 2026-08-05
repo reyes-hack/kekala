@@ -2,15 +2,6 @@ import { chromium } from 'playwright';
 import fs from 'fs';
 import * as readline from 'readline';
 
-const rl = readline.createInterface({
-  input: process.stdin,
-  output: process.stdout
-});
-
-function askQuestion(query: string): Promise<string> {
-  return new Promise(resolve => rl.question(query, resolve));
-}
-
 // Helpers for mappings
 const getBranchInfo = (rawName: string) => {
     if (rawName.includes('Américas')) {
@@ -32,7 +23,10 @@ const generateProductCode = (productName: string) => {
 
 async function run() {
   console.log('--- Kekala Foodbot Scraper ---');
-  let dateInput = await askQuestion('Ingrese el día que desea extraer (ej. 28-06-2026): ');
+  let dateInput = process.argv[2];
+  if (!dateInput) {
+      dateInput = await askQuestion('Ingrese el día que desea extraer (ej. 28-06-2026): ');
+  }
   
   if (!dateInput.match(/^\d{2}-\d{2}-\d{4}$/)) {
     console.error('Formato inválido. Debe ser DD-MM-YYYY.');
@@ -151,6 +145,17 @@ async function run() {
           await page.waitForTimeout(200);
         }
         await page.waitForTimeout(2000);
+
+        // Hacer clic en todos los botones "Table" para revelar tablas ocultas (como la de métodos de pago)
+        await page.evaluate(() => {
+            const elements = document.querySelectorAll('button, a, span, div');
+            for (let i = 0; i < elements.length; i++) {
+                if (elements[i].textContent && elements[i].textContent?.trim() === 'Table') {
+                    (elements[i] as HTMLElement).click();
+                }
+            }
+        });
+        await page.waitForTimeout(2000); // Esperar a que las tablas se rendericen
         
         const textContent = await page.evaluate(() => document.body.innerText);
         
@@ -181,87 +186,147 @@ async function run() {
     console.error('Error durante la extracción:', error);
   } finally {
     await browser.close();
-    rl.close();
   }
 }
 
 function parseTextContent(text: string, sucursalName: string) {
   const lines = text.split('\n').map(l => l.trim()).filter(l => l);
-  const data: any = { kpis: { ordenes: 0, ventas: 0, ticketPromedio: 0 }, productosVendidos: [] };
+  const data: any = { 
+      kpis: { ordenes: 0, ventas: 0, ticketPromedio: 0 }, 
+      productosVendidos: [],
+      modificadoresVendidos: [],
+      metodosDePago: []
+  };
 
+  // Extraer KPIs de la primera tabla
   for (const line of lines) {
     if (line.includes(sucursalName) && line.includes('$')) {
       const idx = line.indexOf(sucursalName);
-      const afterName = line.substring(idx + sucursalName.length);
-      const match = afterName.match(/^(\d+)\$([\d,]+\.\d{2})([\d.]+)\$/);
+      const afterName = line.substring(idx + sucursalName.length).trim();
+      
+      // El formato que bota innerText suele pegar columnas: "68$8,505.00$8,505.00125.07$0.00"
+      // Capturamos: (Ordenes) $ (Ventas Brutas) $ (Ventas) (TicketPromedio) $
+      const match = afterName.match(/^(\d+)\$([\d,]+\.\d{2})\$([\d,]+\.\d{2})([\d.]+)\$/);
+      
       if (match) {
         data.kpis.ordenes = parseInt(match[1], 10);
-        data.kpis.ventas = parseFloat(match[2].replace(/,/g, ''));
-        data.kpis.ticketPromedio = parseFloat(match[3].replace(/,/g, ''));
-        console.log(`        KPIs encontrados: ordenes=${data.kpis.ordenes}, ventas=${data.kpis.ventas}, ticket=${data.kpis.ticketPromedio}`);
+        data.kpis.ventas = parseFloat(match[3].replace(/,/g, ''));
+        data.kpis.ticketPromedio = parseFloat(match[4].replace(/,/g, ''));
         break;
+      } else {
+        // Fallback por si acaso Foodbot cambia y solo hay una columna de ventas
+        const fallbackMatch = afterName.match(/^(\d+)\$([\d,]+\.\d{2})([\d.]+)\$/);
+        if (fallbackMatch) {
+            data.kpis.ordenes = parseInt(fallbackMatch[1], 10);
+            data.kpis.ventas = parseFloat(fallbackMatch[2].replace(/,/g, ''));
+            data.kpis.ticketPromedio = parseFloat(fallbackMatch[3].replace(/,/g, ''));
+            break;
+        }
       }
     }
   }
 
-  let inProductos = false;
-  let passedHeader = false;
+  let section = '';
   
   for (const line of lines) {
-    if (line === 'Productos vendidos(modificadores incluidos)') {
-      passedHeader = true;
-      continue;
-    }
+    // Detectar en qué tabla estamos según los headers
+    if (line === 'Productos vendidos(modificadores incluidos)') { section = 'PRODUCTOS'; continue; }
+    if (line === 'Productos vendidos(modificadores excluidos)') { section = 'PRODUCTOS_EXCLUIDOS'; continue; }
+    if (line === 'Categorías vendidas') { section = 'CATEGORIAS'; continue; }
+    if (line === 'Modificadores vendidos') { section = 'MODIFICADORES'; continue; }
+    if (line.includes('Reporte por método de pago')) { section = 'PAGOS'; continue; }
     
-    if (passedHeader && !inProductos) {
-      if (line === 'Item' || line === 'Órdenes' || line === 'Quantity' || line === 'Ventas') {
+    // Si llegamos a cualquier otro reporte (ej. Reporte por Canal), apagamos el parseo
+    if (line.startsWith('Reporte ') && !line.includes('método de pago')) { section = 'OTHER'; continue; }
+    
+    // Ignorar encabezados de columnas y botones de interfaz
+    if (line === 'Export Data' || line === 'Item' || line === 'Órdenes' || line === 'Quantity' || line === 'Ventas' || line === 'ModifierItem' || line === 'PaymentMethod' || line === 'Channel' || line === 'Table' || line === 'Chart') {
         continue;
-      }
-      if (line.includes('$')) {
-        inProductos = true;
-      }
     }
-    
-    if (inProductos) {
-      if (line === 'Export Data' || line.startsWith('Productos vendidos(modificadores excluidos)') || line === 'Categorías vendidas') {
-        break;
-      }
-      
-      const dollarIdx = line.indexOf('$');
-      if (dollarIdx === -1) continue;
-      
-      const beforeDollar = line.substring(0, dollarIdx);
-      const ventasStr = line.substring(dollarIdx + 1);
-      const ventas = parseFloat(ventasStr.replace(/,/g, ''));
-      
-      const digitMatch = beforeDollar.match(/^(.+?)(\d+)$/);
-      if (!digitMatch) continue;
-      
-      let rawProductName = digitMatch[1].trim();
-      const digitBlock = digitMatch[2];
-      
-      let ordenesStr: string;
-      let cantidadStr: string;
-      
-      if (digitBlock.length <= 1) {
-        ordenesStr = digitBlock;
-        cantidadStr = digitBlock;
-      } else {
-        const half = Math.floor(digitBlock.length / 2);
-        ordenesStr = digitBlock.substring(0, half);
-        cantidadStr = digitBlock.substring(half);
-      }
-      
-      const ordenes = parseInt(ordenesStr, 10);
-      const cantidad = parseInt(cantidadStr, 10);
-      
-      data.productosVendidos.push({
-        productCode: generateProductCode(rawProductName),
-        productName: rawProductName,
-        ordenes,
-        cantidad,
-        ventas
-      });
+
+    if (section === 'PRODUCTOS' || section === 'MODIFICADORES') {
+        if (!line.includes('$')) continue;
+        
+        const dollarIdx = line.indexOf('$');
+        const beforeDollar = line.substring(0, dollarIdx);
+        const ventasStr = line.substring(dollarIdx + 1);
+        const ventas = parseFloat(ventasStr.replace(/,/g, ''));
+        
+        // Al parsear InnerText, a veces se juntan nombres y números "Cobertura Crocante2428"
+        const digitMatch = beforeDollar.match(/^(.+?)(\d+)$/);
+        if (!digitMatch) continue;
+        
+        let rawName = digitMatch[1].trim();
+        const digitBlock = digitMatch[2];
+        
+        let ordenes = 0, cantidad = 0;
+        if (digitBlock.length <= 1) {
+            ordenes = parseInt(digitBlock, 10);
+            cantidad = parseInt(digitBlock, 10);
+        } else {
+            const half = Math.floor(digitBlock.length / 2);
+            ordenes = parseInt(digitBlock.substring(0, half), 10);
+            cantidad = parseInt(digitBlock.substring(half), 10);
+        }
+
+        if (section === 'PRODUCTOS') {
+            data.productosVendidos.push({
+                productCode: generateProductCode(rawName),
+                productName: rawName,
+                ordenes,
+                cantidad,
+                ventas
+            });
+        } else if (section === 'MODIFICADORES') {
+            data.modificadoresVendidos.push({
+                modifierName: rawName,
+                ordenes,
+                cantidad,
+                ventas
+            });
+        }
+    } 
+    else if (section === 'PAGOS') {
+        // Formato esperado de InnerText: "CashPOS38$4,105.00" o "Terminal-ManualPOS30$4,400.00"
+        if (!line.includes('$')) continue;
+        
+        const dollarIdx = line.indexOf('$');
+        const beforeDollar = line.substring(0, dollarIdx);
+        const ventasStr = line.substring(dollarIdx + 1);
+        const ventas = parseFloat(ventasStr.replace(/,/g, ''));
+
+        // Separar Método+Canal y Órdenes
+        const digitMatch = beforeDollar.match(/^(.+?POS|.+?WEB)(\d+)$/i); 
+        let methodChannel = beforeDollar.trim();
+        let ordenes = 0;
+        
+        if (digitMatch) {
+            methodChannel = digitMatch[1];
+            ordenes = parseInt(digitMatch[2], 10);
+        } else {
+            const rawMatch = beforeDollar.match(/^(.+?)(\d+)$/);
+            if(rawMatch) {
+                methodChannel = rawMatch[1];
+                ordenes = parseInt(rawMatch[2], 10);
+            }
+        }
+
+        let paymentMethod = methodChannel;
+        let channel = '';
+        if (methodChannel.toUpperCase().endsWith('POS')) {
+            paymentMethod = methodChannel.substring(0, methodChannel.length - 3).trim();
+            channel = 'POS';
+        } else if (methodChannel.toUpperCase().endsWith('WEB')) {
+            paymentMethod = methodChannel.substring(0, methodChannel.length - 3).trim();
+            channel = 'WEB';
+        }
+
+        data.metodosDePago.push({
+            paymentMethod,
+            channel,
+            ordenes,
+            ventas
+        });
     }
   }
 

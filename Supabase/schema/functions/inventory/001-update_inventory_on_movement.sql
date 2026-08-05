@@ -35,13 +35,8 @@ BEGIN
     -- Validar inventario negativo
     ------------------------------------------------------------------
 
-    IF v_new_stock < 0 THEN
-        RAISE EXCEPTION
-            'Inventario insuficiente. Stock actual: %, movimiento: %, resultado: %',
-            v_current_stock,
-            NEW.quantity,
-            v_new_stock;
-    END IF;
+    -- Eliminada la validación de inventario negativo para permitir 
+    -- sincronización sin stock inicial y evitar bloqueos en operaciones.
 
     ------------------------------------------------------------------
     -- Completar auditoría automáticamente

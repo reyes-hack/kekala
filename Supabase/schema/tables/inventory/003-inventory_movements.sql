@@ -85,18 +85,8 @@ CREATE TABLE IF NOT EXISTS public.inventory_movements (
             OR reference_type = UPPER(reference_type)
         ),
 
-    CONSTRAINT chk_inventory_movements_previous_stock
-        CHECK (
-            previous_stock IS NULL
-            OR previous_stock >= 0
-        ),
-
-    CONSTRAINT chk_inventory_movements_current_stock
-        CHECK (
-            current_stock IS NULL
-            OR current_stock >= 0
-        )
-
+    -- Eliminadas las restricciones chk_inventory_movements_previous_stock
+    -- y chk_inventory_movements_current_stock para permitir stock en negativo.
 );
 
 COMMIT;

@@ -78,10 +78,8 @@ CREATE TABLE IF NOT EXISTS public.branch_inventory (
     -- Checks
     ------------------------------------------------------------------
 
-    CONSTRAINT chk_branch_inventory_current_stock
-        CHECK (
-            current_stock >= 0
-        ),
+    -- Eliminada la restricción chk_branch_inventory_current_stock
+    -- para permitir inventarios en negativo.
 
     CONSTRAINT chk_branch_inventory_minimum_stock
         CHECK (
