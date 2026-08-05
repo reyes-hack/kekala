@@ -3,19 +3,27 @@ import { Plus, Search, Warehouse, Loader2, RefreshCw, X, Play, Store, ChevronLef
 import { supabase } from '../lib/supabaseClient';
 import { useBranchStore } from '../store/useBranchStore';
 
+import { useNeoFilters } from '../hooks/useNeoFilters';
+import { NeoAdvancedFilter } from '../components/NeoAdvancedFilter';
+import { NeoPagination } from '../components/NeoPagination';
+
 export function Inventory() {
   const { activeBranch } = useBranchStore();
   const [inventoryList, setInventoryList] = useState([]);
   const [categories, setCategories] = useState([]);
   const [units, setUnits] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(false);
-  const [initLoading, setInitLoading] = useState(null);
 
-  // Estados de filtros inteligentes
-  const [selectedCategory, setSelectedCategory] = useState('');
-  const [selectedStatus, setSelectedStatus] = useState('todos');
+  // Reemplazamos los estados sueltos por el hook maestro
+  const {
+    page, pageSize, globalSearch, advancedFilters,
+    setPage, setPageSize, setGlobalSearch, applyAdvancedFilter, clearFilters
+  } = useNeoFilters({ initialPageSize: 10 });
+
+  // Alias para mantener legibilidad en lógica interna
+  const selectedCategory = advancedFilters.category || '';
+  const selectedStatus = advancedFilters.status || 'todos';
 
   // Estados para edición de stock mínimo
   const [editingProductId, setEditingProductId] = useState(null);
@@ -28,10 +36,7 @@ export function Inventory() {
   // Estados para Editar Producto Maestro
   const [productToEdit, setProductToEdit] = useState(null);
 
-  // Estados de paginación
-  const [page, setPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
-  const pageSize = 10;
 
   // Evitar la primera ejecución doble en StrictMode
   const isInitialMount = useRef(true);
@@ -41,14 +46,13 @@ export function Inventory() {
     if (!activeBranch) return;
 
     const delayDebounceFn = setTimeout(() => {
-      setPage(1);
-      loadData(1);
+      loadData(page);
     }, isInitialMount.current ? 0 : 300);
 
     isInitialMount.current = false;
 
     return () => clearTimeout(delayDebounceFn);
-  }, [searchTerm, selectedCategory, selectedStatus, activeBranch]);
+  }, [globalSearch, selectedCategory, selectedStatus, activeBranch, page, pageSize]);
 
   // Carga catálogos estáticos una sola vez al montar
   useEffect(() => {
@@ -119,8 +123,8 @@ export function Inventory() {
       }
 
       // Aplicar búsqueda por texto
-      if (searchTerm.trim() !== '') {
-        query = query.or(`name.ilike.%${searchTerm}%,product_code.ilike.%${searchTerm}%`);
+      if (globalSearch && globalSearch.trim() !== '') {
+        query = query.or(`name.ilike.%${globalSearch}%,product_code.ilike.%${globalSearch}%`);
       }
 
       // Aplicar filtro de estado de stock en base a los IDs filtrados
@@ -151,12 +155,6 @@ export function Inventory() {
     } finally {
       setLoading(false);
     }
-  }
-
-  // Cambiar de página manualmente
-  async function handlePageChange(newPage) {
-    setPage(newPage);
-    await loadData(newPage);
   }
 
   async function inicializarInventario(productId) {
@@ -207,22 +205,11 @@ export function Inventory() {
     }
   }
 
-  const totalPages = Math.ceil(totalCount / pageSize) || 1;
-
   return (
     <>
       <div className="page-header animate-in">
         <h1>Inventario: {activeBranch ? activeBranch.name : 'Seleccione Sucursal'}</h1>
         <div className="page-header-actions">
-          <div className="search-box">
-            <Search size={18} color="var(--text-muted)" />
-            <input
-              type="text"
-              placeholder="Buscar producto..."
-              value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value)}
-            />
-          </div>
           <button className="neo-btn" onClick={() => loadData(page)} title="Recargar" disabled={!activeBranch}>
             <RefreshCw size={18} />
           </button>
@@ -234,78 +221,23 @@ export function Inventory() {
 
       {/* Panel de Filtros Inteligentes */}
       {activeBranch && (
-        <div className="animate-in" style={{
-          display: 'flex',
-          gap: '1rem',
-          marginBottom: '2rem',
-          flexWrap: 'wrap',
-          alignItems: 'center',
-          background: 'var(--surface-color)',
-          padding: '1rem',
-          borderRadius: 'var(--radius-md)',
-          boxShadow: 'var(--neo-shadow-flat)'
-        }}>
-          {/* Categoría */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Categoría:</span>
-            <select
-              value={selectedCategory}
-              onChange={(e) => setSelectedCategory(e.target.value)}
-              style={{
-                padding: '8px 16px',
-                border: 'none',
-                borderRadius: 'var(--radius-sm)',
-                background: 'var(--surface-color)',
-                boxShadow: 'var(--neo-shadow-inset)',
-                color: 'var(--text-primary)',
-                fontWeight: 500,
-                outline: 'none',
-                cursor: 'pointer'
-              }}
-            >
-              <option value="">Todas las categorías</option>
-              {categories.map(c => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Estatus Píldoras */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginLeft: 'auto', flexWrap: 'wrap' }}>
-            <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Estado Stock:</span>
-            <div style={{
-              display: 'flex',
-              background: 'var(--surface-color)',
-              boxShadow: 'var(--neo-shadow-inset)',
-              padding: '4px',
-              borderRadius: 'var(--radius-sm)'
-            }}>
-              {[
-                { id: 'todos', label: 'Todos' },
-                { id: 'optimo', label: 'Óptimo' },
-                { id: 'bajo', label: 'Bajo Stock' },
-                { id: 'agotado', label: 'Agotado' }
-              ].map(tab => (
-                <button
-                  key={tab.id}
-                  onClick={() => setSelectedStatus(tab.id)}
-                  style={{
-                    padding: '6px 12px',
-                    border: 'none',
-                    borderRadius: 'calc(var(--radius-sm) - 4px)',
-                    background: selectedStatus === tab.id ? 'var(--accent-gradient)' : 'transparent',
-                    color: selectedStatus === tab.id ? 'var(--text-on-brand)' : 'var(--text-secondary)',
-                    fontWeight: 600,
-                    fontSize: '0.8rem',
-                    cursor: 'pointer',
-                    transition: 'all var(--transition-fast)'
-                  }}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
-          </div>
+        <div style={{ marginBottom: '24px' }}>
+          <NeoAdvancedFilter 
+            globalSearch={globalSearch}
+            onSearchChange={setGlobalSearch}
+            filters={advancedFilters}
+            onFilterApply={applyAdvancedFilter}
+            onClearFilters={clearFilters}
+            filterConfig={[
+              { id: 'category', label: 'Categoría', type: 'select', options: categories.map(c => ({val: c.id, label: c.name})) },
+              { id: 'status', label: 'Estado de Stock', type: 'select', options: [
+                {val: 'todos', label: 'Todos'},
+                {val: 'optimo', label: 'Óptimo'},
+                {val: 'bajo', label: 'Bajo Stock'},
+                {val: 'agotado', label: 'Agotado'}
+              ]}
+            ]}
+          />
         </div>
       )}
 
@@ -519,42 +451,13 @@ export function Inventory() {
               </table>
             </div>
 
-            {/* Controles de paginación neomórficos */}
-            <div style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              padding: '1.25rem 1.5rem',
-              borderTop: '1px solid rgba(26, 79, 153, 0.06)',
-              flexWrap: 'wrap',
-              gap: '1rem'
-            }}>
-              <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
-                Mostrando <strong>{inventoryList.length}</strong> de <strong>{totalCount}</strong> productos
-              </span>
-              
-              <div style={{ display: 'flex', gap: '0.75rem', marginLeft: 'auto', alignItems: 'center' }}>
-                <button 
-                  className="neo-btn" 
-                  style={{ padding: '8px 12px' }} 
-                  onClick={() => handlePageChange(page - 1)}
-                  disabled={page === 1}
-                >
-                  <ChevronLeft size={16} />
-                </button>
-                <span style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-primary)' }}>
-                  Pág. {page} de {totalPages}
-                </span>
-                <button 
-                  className="neo-btn" 
-                  style={{ padding: '8px 12px' }}
-                  onClick={() => handlePageChange(page + 1)}
-                  disabled={page === totalPages}
-                >
-                  <ChevronRight size={16} />
-                </button>
-              </div>
-            </div>
+            <NeoPagination 
+              currentPage={page}
+              pageSize={pageSize}
+              totalCount={totalCount}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
+            />
           </>
         ) : (
           <div className="empty-state">

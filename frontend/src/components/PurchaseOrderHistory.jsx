@@ -4,16 +4,30 @@ import { FileText, Clock, CheckCircle, XCircle, PackageCheck, Download } from 'l
 import { exportToExcelWithStyles } from '../utils/exportUtils';
 import { PurchaseOrderModal } from './PurchaseOrderModal';
 
+import { useNeoFilters } from '../hooks/useNeoFilters';
+import { NeoAdvancedFilter } from './NeoAdvancedFilter';
+import { NeoPagination } from './NeoPagination';
+import { NeoSelect } from './NeoSelect';
+
 export function PurchaseOrderHistory() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [branches, setBranches] = useState({});
   const [viewingOrder, setViewingOrder] = useState(null);
+  const [totalRecords, setTotalRecords] = useState(0);
+
+  const {
+    page, pageSize, globalSearch, advancedFilters,
+    setPage, setPageSize, setGlobalSearch, applyAdvancedFilter, clearFilters
+  } = useNeoFilters({ initialPageSize: 10 });
+
+  useEffect(() => {
+    fetchBranches();
+  }, []);
 
   useEffect(() => {
     fetchOrders();
-    fetchBranches();
-  }, []);
+  }, [page, pageSize, globalSearch, advancedFilters]);
 
   const fetchBranches = async () => {
     const { data } = await supabase.from('branches').select('id, name, organization_id');
@@ -27,13 +41,40 @@ export function PurchaseOrderHistory() {
   const fetchOrders = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
+      let query = supabase
         .from('purchase_orders')
-        .select('*')
-        .order('created_at', { ascending: false });
+        .select('*', { count: 'exact' });
+
+      // Advanced Filters
+      if (advancedFilters.status) {
+        query = query.eq('status', advancedFilters.status);
+      }
+      if (advancedFilters.date_from) {
+        query = query.gte('created_at', advancedFilters.date_from + 'T00:00:00');
+      }
+      if (advancedFilters.date_to) {
+        query = query.lte('created_at', advancedFilters.date_to + 'T23:59:59');
+      }
+      if (advancedFilters.branch) {
+        query = query.eq('branch_id', advancedFilters.branch);
+      }
+
+      // Global Search
+      if (globalSearch) {
+        query = query.or(`justification.ilike.%${globalSearch}%,id.ilike.%${globalSearch}%`);
+      }
+
+      // Pagination
+      const from = (page - 1) * pageSize;
+      const to = from + pageSize - 1;
+
+      const { data, count, error } = await query
+        .order('created_at', { ascending: false })
+        .range(from, to);
 
       if (error) throw error;
       setOrders(data || []);
+      setTotalRecords(count || 0);
     } catch (err) {
       console.error("Error fetching orders:", err);
     } finally {
@@ -204,6 +245,27 @@ export function PurchaseOrderHistory() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+      
+      <div style={{ marginBottom: '10px' }}>
+        <NeoAdvancedFilter 
+          globalSearch={globalSearch}
+          onSearchChange={setGlobalSearch}
+          filters={advancedFilters}
+          onFilterApply={applyAdvancedFilter}
+          onClearFilters={clearFilters}
+          filterConfig={[
+            { id: 'date_from', label: 'Desde Fecha', type: 'date' },
+            { id: 'date_to', label: 'Hasta Fecha', type: 'date' },
+            { id: 'status', label: 'Estado', type: 'select', options: [
+              {val: 'ENVIADA', label: 'ENVIADA'},
+              {val: 'ACEPTADA', label: 'ACEPTADA'},
+              {val: 'RECHAZADA', label: 'RECHAZADA'},
+              {val: 'ENTREGADA', label: 'ENTREGADA'}
+            ] },
+            { id: 'branch', label: 'Sucursal', type: 'select', options: Object.entries(branches).map(([id, b]) => ({val: id, label: b.name})) }
+          ]}
+        />
+      </div>
       {orders.length === 0 ? (
         <div className="neo-surface" style={{ padding: '40px', textAlign: 'center', borderRadius: '16px', color: 'var(--text-muted)' }}>
           <FileText size={48} style={{ opacity: 0.3, marginBottom: '16px' }} />
@@ -243,18 +305,20 @@ export function PurchaseOrderHistory() {
             <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                 <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>Cambiar Estado:</label>
-                <select 
-                  className="neo-input"
-                  style={{ padding: '8px', minWidth: '150px', background: 'var(--background-color)' }}
+                <NeoSelect 
+                  name="status"
                   value={order.status}
                   onChange={(e) => handleStatusChange(order, e.target.value)}
                   disabled={order.status === 'ENTREGADA'}
-                >
-                  <option value="ENVIADA">ENVIADA</option>
-                  <option value="ACEPTADA">ACEPTADA (Proveedor Confirmó)</option>
-                  <option value="RECHAZADA">RECHAZADA</option>
-                  <option value="ENTREGADA">ENTREGADA A SUCURSAL (Suma Inventario)</option>
-                </select>
+                  options={[
+                    {value: "ENVIADA", label: "ENVIADA"},
+                    {value: "ACEPTADA", label: "ACEPTADA (Proveedor Confirmó)"},
+                    {value: "RECHAZADA", label: "RECHAZADA"},
+                    {value: "ENTREGADA", label: "ENTREGADA A SUCURSAL (Suma Inventario)"}
+                  ]}
+                  placeholder="Seleccionar Estado"
+                  style={{ minWidth: '150px' }}
+                />
               </div>
 
               <button 
@@ -277,6 +341,16 @@ export function PurchaseOrderHistory() {
             </div>
           </div>
         ))
+      )}
+
+      {totalRecords > 0 && !loading && (
+        <NeoPagination 
+          currentPage={page}
+          pageSize={pageSize}
+          totalCount={totalRecords}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+        />
       )}
 
       {viewingOrder && (

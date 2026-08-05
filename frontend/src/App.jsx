@@ -9,8 +9,10 @@ import { Sales } from './pages/Sales';
 import { Recetario } from './pages/Recetario';
 import { Purchases } from './pages/Purchases';
 import { Mermas } from './pages/Mermas';
+import { CortesDeCaja } from './pages/CortesDeCaja';
 import { ComingSoon } from './pages/ComingSoon';
 import './index.css';
+import { Configuracion } from './pages/Configuracion';
 
 /* ════════════════════════════════════════════
    MÓDULO DE ENRUTAMIENTO — KEKALA ERP
@@ -23,12 +25,13 @@ function App() {
         <Route path="/" element={<MainLayout />}>
           <Route index element={<Dashboard />} />
           <Route path="inventario" element={<Inventory />} />
-          <Route path="sucursales" element={<Sucursales />} />
+          <Route path="configuracion" element={<Configuracion />} />
           <Route path="ventas" element={<Sales />} />
           <Route path="recetario" element={<Recetario />} />
           <Route path="auditoria" element={<Auditoria />} />
           <Route path="gastos" element={<Purchases />} />
           <Route path="mermas" element={<Mermas />} />
+          <Route path="cortes" element={<CortesDeCaja />} />
           <Route path="*" element={<Navigate to="/inventario" replace />} />
         </Route>
       </Routes>

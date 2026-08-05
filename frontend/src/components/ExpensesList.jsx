@@ -6,11 +6,21 @@ import * as XLSX from 'xlsx';
 import { NeoSelect } from './NeoSelect';
 import { NeoDatePicker } from './NeoDatePicker';
 
+import { useNeoFilters } from '../hooks/useNeoFilters';
+import { NeoAdvancedFilter } from './NeoAdvancedFilter';
+import { NeoPagination } from './NeoPagination';
+
 export function ExpensesList() {
   const { activeBranch } = useBranchStore();
   const [expenses, setExpenses] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [totalRecords, setTotalRecords] = useState(0);
   
+  const {
+    page, pageSize, globalSearch, advancedFilters,
+    setPage, setPageSize, setGlobalSearch, applyAdvancedFilter, clearFilters
+  } = useNeoFilters({ initialPageSize: 10 });
+
   // Opciones autocompletadas combinadas (por defecto + base de datos)
   const [categories, setCategories] = useState(['INSUMO', 'LIMPIEZA', 'MANTENIMIENTO', 'SERVICIOS', 'NÓMINA', 'MARKETING', 'OTROS']);
   const [establishments, setEstablishments] = useState(['OFFICE DEPOT', 'CHEDRAUI', 'SAMS CLUB', 'WALMART', 'MERCADO LIBRE', 'AMAZON', 'OTRO']);
@@ -30,37 +40,57 @@ export function ExpensesList() {
   });
 
   const [saving, setSaving] = useState(false);
-  const [monthFilter, setMonthFilter] = useState(() => {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-  });
 
   useEffect(() => {
     if (activeBranch) {
       fetchExpenses();
     }
-  }, [activeBranch, monthFilter]);
+  }, [activeBranch, page, pageSize, globalSearch, advancedFilters]);
 
   const fetchExpenses = async () => {
     try {
       setLoading(true);
       
-      // Parsear mes y año
-      const [year, month] = monthFilter.split('-');
-      const startDate = `${year}-${month}-01`;
-      const endDate = new Date(year, month, 0).toISOString().split('T')[0]; // Último día del mes
-
-      const { data, error } = await supabase
+      let query = supabase
         .from('expenses')
-        .select('*')
-        .eq('branch_id', activeBranch.id)
-        .gte('date', startDate)
-        .lte('date', endDate)
+        .select('*', { count: 'exact' })
+        .eq('branch_id', activeBranch.id);
+
+      // Advanced Filters
+      if (advancedFilters.date_from) {
+        query = query.gte('date', advancedFilters.date_from);
+      }
+      if (advancedFilters.date_to) {
+        query = query.lte('date', advancedFilters.date_to);
+      }
+      if (advancedFilters.payment_method) {
+        query = query.eq('payment_method', advancedFilters.payment_method);
+      }
+      if (advancedFilters.category) {
+        query = query.eq('category', advancedFilters.category);
+      }
+      if (advancedFilters.responsible) {
+        query = query.eq('responsible', advancedFilters.responsible);
+      }
+
+      // Global Search
+      if (globalSearch) {
+        query = query.or(`concept.ilike.%${globalSearch}%,establishment.ilike.%${globalSearch}%,folio.ilike.%${globalSearch}%`);
+      }
+
+      // Pagination
+      const from = (page - 1) * pageSize;
+      const to = from + pageSize - 1;
+
+      const { data, count, error } = await query
         .order('date', { ascending: false })
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .range(from, to);
 
       if (error) throw error;
+      
       setExpenses(data || []);
+      setTotalRecords(count || 0);
 
       // Extraer valores únicos de la base de datos para autocompletar
       if (data && data.length > 0) {
@@ -173,8 +203,8 @@ export function ExpensesList() {
       
 
       {/* FORMULARIO DE REGISTRO (Estilo rápido) */}
-      <div className="neo-surface" style={{ padding: '0', borderRadius: '16px', overflow: 'hidden' }}>
-        <div style={{ background: 'var(--primary-color)', padding: '20px 24px', display: 'flex', alignItems: 'center', gap: '12px', color: 'white' }}>
+      <div className="neo-surface" style={{ padding: '0', borderRadius: '16px' }}>
+        <div style={{ background: 'var(--primary-color)', padding: '20px 24px', display: 'flex', alignItems: 'center', gap: '12px', color: 'white', borderTopLeftRadius: '16px', borderTopRightRadius: '16px' }}>
           <div style={{ background: 'rgba(255,255,255,0.2)', padding: '8px', borderRadius: '12px' }}>
             <Wallet size={24} />
           </div>
@@ -300,43 +330,43 @@ export function ExpensesList() {
         </form>
       </div>
 
-      {/* CONTROLES Y RESUMEN */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '20px' }}>
-        <div className="neo-surface" style={{ display: 'flex', gap: '16px', alignItems: 'center', padding: '16px 24px', borderRadius: '20px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div style={{ background: 'var(--accent-gradient)', padding: '10px', borderRadius: '12px', color: 'white' }}>
-              <Calendar size={20} />
+
+        {/* CONTROLES AVANZADOS Y RESUMEN */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '20px' }}>
+            <div className="neo-surface fade-in" style={{ padding: '16px 32px', borderRadius: '20px', background: 'linear-gradient(135deg, var(--surface-color) 0%, rgba(220, 38, 38, 0.05) 100%)', border: '1px solid rgba(220, 38, 38, 0.1)', display: 'flex', alignItems: 'center', gap: '20px', boxShadow: 'var(--neo-shadow-sm)' }}>
+              <div style={{ background: 'rgba(220, 38, 38, 0.1)', padding: '12px', borderRadius: '12px' }}>
+                <Wallet size={28} style={{ color: 'var(--status-danger)' }} />
+              </div>
+              <div>
+                <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 600, marginBottom: '2px' }}>Total Gastos Cargados</div>
+                <div style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--status-danger)' }}>
+                  {totalRecords} Gastos
+                </div>
+              </div>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px' }}>
-                Mes de Consulta
-              </label>
-              <input 
-                type="month" 
-                value={monthFilter} 
-                onChange={(e) => setMonthFilter(e.target.value)} 
-                style={{ border: 'none', background: 'transparent', outline: 'none', color: 'var(--text-primary)', fontWeight: 600, fontSize: '1.05rem', cursor: 'pointer' }}
-              />
-            </div>
+
+            <button onClick={exportExcel} className="neo-btn" style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#10b981', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.2)', padding: '12px 24px', fontWeight: 600 }}>
+              <Download size={18} /> Exportar Reporte
+            </button>
           </div>
-          <div style={{ width: '1px', height: '40px', background: 'rgba(0,0,0,0.1)', margin: '0 8px' }}></div>
-          <button onClick={exportExcel} className="neo-btn" style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#10b981', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.2)', padding: '12px 24px', fontWeight: 600 }}>
-            <Download size={18} /> Exportar Reporte
-          </button>
+
+          <NeoAdvancedFilter 
+            globalSearch={globalSearch}
+            onSearchChange={setGlobalSearch}
+            filters={advancedFilters}
+            onFilterApply={applyAdvancedFilter}
+            onClearFilters={clearFilters}
+            filterConfig={[
+              { id: 'date_from', label: 'Desde Fecha', type: 'date' },
+              { id: 'date_to', label: 'Hasta Fecha', type: 'date' },
+              { id: 'category', label: 'Categoría', type: 'select', options: categories.map(c => ({val: c, label: c})) },
+              { id: 'payment_method', label: 'Método de Pago', type: 'select', options: paymentMethods.map(p => ({val: p, label: p})) },
+              { id: 'responsible', label: 'Responsable', type: 'select', options: responsibles.map(r => ({val: r, label: r})) }
+            ]}
+          />
         </div>
-        
-        <div className="neo-surface fade-in" style={{ padding: '16px 32px', borderRadius: '20px', background: 'linear-gradient(135deg, var(--surface-color) 0%, rgba(220, 38, 38, 0.05) 100%)', border: '1px solid rgba(220, 38, 38, 0.1)', display: 'flex', alignItems: 'center', gap: '20px', boxShadow: 'var(--neo-shadow-sm)' }}>
-          <div style={{ background: 'rgba(220, 38, 38, 0.1)', padding: '12px', borderRadius: '12px' }}>
-            <Wallet size={28} style={{ color: 'var(--status-danger)' }} />
-          </div>
-          <div>
-            <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 600, marginBottom: '2px' }}>Total Gastado ({monthFilter})</div>
-            <div style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--status-danger)' }}>
-              $ {totalAmount.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
-            </div>
-          </div>
-        </div>
-      </div>
 
       {/* TABLA DE GASTOS */}
       <div className="neo-surface" style={{ padding: '24px', borderRadius: '16px' }}>
@@ -383,6 +413,16 @@ export function ExpensesList() {
               </tbody>
             </table>
           </div>
+        )}
+
+        {totalRecords > 0 && !loading && (
+          <NeoPagination 
+            currentPage={page}
+            pageSize={pageSize}
+            totalCount={totalRecords}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+          />
         )}
       </div>
     </div>

@@ -3,6 +3,7 @@ import { X, FileText, Download, FileSpreadsheet, Calculator, Check } from 'lucid
 import { supabase } from '../lib/supabaseClient';
 import { useBranchStore } from '../store/useBranchStore';
 import { exportToPDF, exportToExcelWithStyles } from '../utils/exportUtils';
+import { NeoSelect } from './NeoSelect';
 
 export function PurchaseOrderModal({ onClose, viewOrder }) {
   const { activeBranch } = useBranchStore();
@@ -285,16 +286,14 @@ export function PurchaseOrderModal({ onClose, viewOrder }) {
         <header className="modal-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
             <h2>Generar Orden de Compra</h2>
-            <select 
+            <NeoSelect 
+              name="branchSelect"
               value={selectedBranchId || ''} 
               onChange={(e) => setSelectedBranchId(e.target.value)}
-              className="neo-input"
-              style={{ padding: '6px 12px', fontSize: '0.9rem', width: '250px' }}
-            >
-              {allBranches.map(b => (
-                <option key={b.id} value={b.id}>{b.name}</option>
-              ))}
-            </select>
+              options={allBranches.map(b => ({ value: b.id, label: b.name }))}
+              placeholder="Seleccionar Sucursal"
+              style={{ width: '250px' }}
+            />
           </div>
           <button onClick={onClose} className="modal-close"><X size={24} /></button>
         </header>

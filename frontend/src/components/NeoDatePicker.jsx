@@ -105,7 +105,7 @@ export const NeoDatePicker = ({ name, value, onChange, required, placeholder = "
       <input type="text" style={{display:'none'}} required={required} value={value} onChange={()=>{}} />
       
       {open && (
-         <div className="neo-surface" style={{ position: 'absolute', top: '100%', left: 0, zIndex: 20, marginTop: '12px', padding: '16px', borderRadius: '20px', width: '280px', boxShadow: 'var(--neo-shadow-hover)' }}>
+         <div className="neo-surface" style={{ position: 'absolute', top: '100%', left: 0, zIndex: 9999, marginTop: '12px', padding: '16px', borderRadius: '20px', width: '280px', boxShadow: 'var(--neo-shadow-hover)' }}>
             
             {/* Calendar Header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>

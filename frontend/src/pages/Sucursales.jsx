@@ -10,6 +10,7 @@ export function Sucursales() {
   
   // Modal State
   const [showModal, setShowModal] = useState(false);
+  const [showLicenseModal, setShowLicenseModal] = useState(false);
   const [editingBranch, setEditingBranch] = useState(null);
   const [saving, setSaving] = useState(false);
 
@@ -54,6 +55,12 @@ export function Sucursales() {
   };
 
   const openModal = (branch = null) => {
+    if (!branch && branchesList.length >= 2) {
+      // LIMIT REACHED FOR NEW BRANCH
+      setShowLicenseModal(true);
+      return;
+    }
+
     if (branch) {
       setEditingBranch(branch);
       setFormData({
@@ -306,6 +313,33 @@ export function Sucursales() {
               </div>
 
             </form>
+          </div>
+        </div>
+      )}
+
+      {showLicenseModal && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ width: '90%', maxWidth: '500px', padding: '0', overflow: 'hidden' }}>
+            <div style={{ background: '#ef4444', padding: '32px', textAlign: 'center', color: 'white' }}>
+              <Building2 size={64} style={{ margin: '0 auto 16px auto', opacity: 0.9 }} />
+              <h2 style={{ margin: 0, fontSize: '1.8rem', fontWeight: 800 }}>¡LÍMITE ALCANZADO!</h2>
+              <p style={{ margin: '8px 0 0 0', fontSize: '1.1rem', opacity: 0.9 }}>Licencia Básica (Max. 2 Sucursales)</p>
+            </div>
+            
+            <div style={{ padding: '32px', textAlign: 'center' }}>
+              <p style={{ color: 'var(--text-primary)', fontSize: '1.1rem', lineHeight: '1.6', marginBottom: '24px' }}>
+                Tu plan actual solo te permite administrar un máximo de 2 sucursales simultáneas. Para registrar una tercera sucursal y seguir expandiendo tu negocio, necesitas aumentar tu plan.
+              </p>
+              
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <button onClick={() => setShowLicenseModal(false)} className="neo-btn neo-btn-primary" style={{ padding: '16px', fontSize: '1.1rem', fontWeight: 700, borderRadius: '12px', background: '#ef4444', color: 'white' }}>
+                  Contactar a Soporte
+                </button>
+                <button onClick={() => setShowLicenseModal(false)} className="neo-btn" style={{ padding: '12px', fontSize: '1rem', fontWeight: 600 }}>
+                  Cerrar
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

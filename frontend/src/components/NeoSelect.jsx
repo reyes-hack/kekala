@@ -16,9 +16,12 @@ export const NeoSelect = ({ name, value, onChange, options, placeholder, require
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const displayValue = open ? filter : (value || '');
   // options can be an array of strings OR an array of objects {label, value}
   const isObjectOptions = options.length > 0 && typeof options[0] === 'object';
+  
+  // Buscar el label correspondiente al valor actual
+  const currentOption = isObjectOptions ? options.find(o => o.value === value) : value;
+  const displayValue = open ? filter : (currentOption ? (isObjectOptions ? currentOption.label : currentOption) : (value || ''));
   
   const filtered = options.filter(o => {
     const label = isObjectOptions ? o.label : o;
@@ -50,7 +53,7 @@ export const NeoSelect = ({ name, value, onChange, options, placeholder, require
       </div>
       
       {open && (
-         <div className="neo-surface" style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 10, maxHeight: '200px', overflowY: 'auto', marginTop: '12px', padding: '8px', borderRadius: '12px' }}>
+         <div className="neo-surface" style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 9999, maxHeight: '200px', overflowY: 'auto', marginTop: '12px', padding: '8px', borderRadius: '12px' }}>
             {filtered.map(opt => {
                const lbl = isObjectOptions ? opt.label : opt;
                const val = isObjectOptions ? opt.value : opt;

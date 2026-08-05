@@ -3,7 +3,9 @@ import { supabase } from '../lib/supabaseClient';
 import { useBranchStore } from '../store/useBranchStore';
 import { ClipboardCheck, Search, Camera, Check, X, CheckCircle2, Clock, ShieldAlert, Filter, Send } from 'lucide-react';
 import { NeoSelect } from '../components/NeoSelect';
-
+import { useNeoFilters } from '../hooks/useNeoFilters';
+import { NeoAdvancedFilter } from '../components/NeoAdvancedFilter';
+import { NeoPagination } from '../components/NeoPagination';
 export function Auditoria() {
   const { activeBranch } = useBranchStore();
   const [loading, setLoading] = useState(true);
@@ -164,20 +166,58 @@ export function Auditoria() {
   // ----------------------------------------------------
   const [selectedAuditSession, setSelectedAuditSession] = useState(null);
   const [auditDetails, setAuditDetails] = useState([]);
+  const [totalSessions, setTotalSessions] = useState(0);
 
-  const openAdminReview = async () => {
+  const {
+    page, pageSize, globalSearch, advancedFilters,
+    setPage, setPageSize, setGlobalSearch, applyAdvancedFilter, clearFilters
+  } = useNeoFilters({ initialPageSize: 10 });
+
+  // Escuchar cambios en los filtros del Admin para recargar
+  useEffect(() => {
+    if (mode === 'ADMIN_REVIEW' && !selectedAuditSession) {
+      loadAdminSessions();
+    }
+  }, [mode, selectedAuditSession, page, pageSize, globalSearch, advancedFilters]);
+
+  const openAdminReview = () => {
+    setMode('ADMIN_REVIEW');
+  };
+
+  const loadAdminSessions = async () => {
     setLoading(true);
     try {
-      // Cargar sesiones de esta sucursal
-      const { data, error } = await supabase
+      let query = supabase
         .from('audit_sessions')
-        .select(`id, status, started_at, completed_at, started_by`)
-        .eq('branch_id', activeBranch.id)
-        .order('started_at', { ascending: false });
+        .select(`id, status, started_at, completed_at, started_by`, { count: 'exact' })
+        .eq('branch_id', activeBranch.id);
+
+      // Advanced Filters
+      if (advancedFilters.status) {
+        query = query.eq('status', advancedFilters.status);
+      }
+      if (advancedFilters.date_from) {
+        query = query.gte('started_at', advancedFilters.date_from + 'T00:00:00');
+      }
+      if (advancedFilters.date_to) {
+        query = query.lte('started_at', advancedFilters.date_to + 'T23:59:59');
+      }
+
+      // Global Search
+      if (globalSearch) {
+        query = query.ilike('id', `%${globalSearch}%`);
+      }
+
+      const from = (page - 1) * pageSize;
+      const to = from + pageSize - 1;
+
+      const { data, count, error } = await query
+        .order('started_at', { ascending: false })
+        .range(from, to);
 
       if (error) throw error;
       setSessions(data || []);
-      setMode('ADMIN_REVIEW');
+      setTotalSessions(count || 0);
     } catch (err) {
       console.error(err);
     } finally {
@@ -366,6 +406,24 @@ export function Auditoria() {
             <button onClick={() => setMode('SELECTION')} className="neo-btn" style={{ padding: '8px 16px' }}>Volver</button>
           </div>
 
+          <div style={{ marginBottom: '24px' }}>
+            <NeoAdvancedFilter 
+              globalSearch={globalSearch}
+              onSearchChange={setGlobalSearch}
+              filters={advancedFilters}
+              onFilterApply={applyAdvancedFilter}
+              onClearFilters={clearFilters}
+              filterConfig={[
+                { id: 'date_from', label: 'Desde Fecha', type: 'date' },
+                { id: 'date_to', label: 'Hasta Fecha', type: 'date' },
+                { id: 'status', label: 'Estado', type: 'select', options: [
+                  {val: 'IN_PROGRESS', label: 'En Progreso'},
+                  {val: 'COMPLETED', label: 'Finalizada'}
+                ]}
+              ]}
+            />
+          </div>
+
           {sessions.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>No hay auditorías registradas.</div>
           ) : (
@@ -392,6 +450,16 @@ export function Auditoria() {
                 </div>
               ))}
             </div>
+          )}
+
+          {totalSessions > 0 && !loading && (
+            <NeoPagination 
+              currentPage={page}
+              pageSize={pageSize}
+              totalCount={totalSessions}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
+            />
           )}
         </div>
       )}

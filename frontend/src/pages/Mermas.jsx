@@ -6,6 +6,9 @@ import * as XLSX from 'xlsx';
 import { NeoSelect } from '../components/NeoSelect';
 
 import { NeoDatePicker } from '../components/NeoDatePicker';
+import { useNeoFilters } from '../hooks/useNeoFilters';
+import { NeoAdvancedFilter } from '../components/NeoAdvancedFilter';
+import { NeoPagination } from '../components/NeoPagination';
 
 export function Mermas() {
 // ... (saltando las partes que no cambian, pero oh espera, tengo que reemplazar líneas exactas)
@@ -23,17 +26,16 @@ export function Mermas() {
   const [approvedStatusId, setApprovedStatusId] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
 
-  const [monthFilter, setMonthFilter] = useState(new Date().toISOString().slice(0, 7));
+  const [totalRecords, setTotalRecords] = useState(0);
+
+  const {
+    page, pageSize, globalSearch, advancedFilters,
+    setPage, setPageSize, setGlobalSearch, applyAdvancedFilter, clearFilters
+  } = useNeoFilters({ initialPageSize: 10 });
 
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split('T')[0],
-    product: '',
-    flavor: '',
-    shift: '',
-    quantity: '',
-    batch: '',
-    reason: '',
-    notes: ''
+    product: '', flavor: '', shift: '', quantity: '', batch: '', reason: '', notes: ''
   });
   const [photoFile, setPhotoFile] = useState(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
@@ -41,37 +43,22 @@ export function Mermas() {
   const shifts = ["TURNO MAÑANA", "TURNO TARDE"];
 
   useEffect(() => {
-    if (activeBranch) {
-      loadData();
-    }
-  }, [activeBranch, monthFilter]);
+    if (activeBranch) loadFormCatalogs();
+  }, [activeBranch]);
 
-  const loadData = async () => {
-    setLoading(true);
+  useEffect(() => {
+    if (activeBranch) loadMermas();
+  }, [activeBranch, page, pageSize, globalSearch, advancedFilters]);
+
+  const loadFormCatalogs = async () => {
     try {
-      // 1. Get current user
       const { data: { user } } = await supabase.auth.getUser();
       setCurrentUser(user);
 
-      // 2. Load Active Products for the Combobox
-      const { data: prods } = await supabase
-        .from('products')
-        .select('id, name')
-        .eq('is_active', true);
-      
+      const { data: prods } = await supabase.from('products').select('id, name').eq('is_active', true);
       setProducts((prods || []).map(p => ({ label: p.name, value: p.id })));
 
-      // 3. Load Reasons
-      const { data: rsns } = await supabase
-        .from('catalog_values')
-        .select('id, name')
-        .eq('catalog_types(code)', 'WASTE_REASON')
-        .eq('is_active', true);
-      
-      // We need to fetch via a join or 2 queries because of PostgREST limits sometimes.
-      // Let's do it safely:
       const { data: catalogTypes } = await supabase.from('catalog_types').select('id, code').in('code', ['WASTE_REASON', 'WASTE_STATUS']);
-      
       if (catalogTypes) {
         const reasonType = catalogTypes.find(c => c.code === 'WASTE_REASON');
         const statusType = catalogTypes.find(c => c.code === 'WASTE_STATUS');
@@ -86,48 +73,68 @@ export function Mermas() {
           if (statusVals && statusVals.length > 0) setApprovedStatusId(statusVals[0].id);
         }
       }
+    } catch(err) {
+      console.error(err);
+    }
+  };
 
-      // 4. Load Mermas (Waste Records + Items)
-      const startDate = `${monthFilter}-01`;
-      const endDate = new Date(monthFilter.split('-')[0], monthFilter.split('-')[1], 0).toISOString().split('T')[0];
-
-      const { data: records, error } = await supabase
-        .from('waste_records')
+  const loadMermas = async () => {
+    setLoading(true);
+    try {
+      let query = supabase
+        .from('waste_items')
         .select(`
-          id, waste_number, waste_date, metadata, notes,
-          reason:catalog_values!reason_id(name),
-          waste_items (
-            id, quantity, product:products(name)
+          id, quantity,
+          product:products(name),
+          waste_record:waste_records!inner(
+            waste_number, waste_date, metadata, notes, branch_id,
+            reason:catalog_values!reason_id(name)
           )
-        `)
-        .eq('branch_id', activeBranch.id)
-        .gte('waste_date', startDate)
-        .lte('waste_date', endDate)
-        .order('waste_date', { ascending: false });
+        `, { count: 'exact' })
+        .eq('waste_record.branch_id', activeBranch.id);
+
+      // Advanced Filters
+      if (advancedFilters.date_from) {
+        query = query.gte('waste_record.waste_date', advancedFilters.date_from);
+      }
+      if (advancedFilters.date_to) {
+        query = query.lte('waste_record.waste_date', advancedFilters.date_to);
+      }
+      if (advancedFilters.shift) {
+        query = query.eq('waste_record.metadata->>shift', advancedFilters.shift);
+      }
+
+      // Global Search (Folio o Notas)
+      if (globalSearch) {
+        query = query.or(`waste_number.ilike.%${globalSearch}%,notes.ilike.%${globalSearch}%`, { foreignTable: 'waste_record' });
+      }
+
+      // Pagination
+      const from = (page - 1) * pageSize;
+      const to = from + pageSize - 1;
+      
+      const { data, count, error } = await query
+        .order('waste_date', { foreignTable: 'waste_record', ascending: false })
+        .range(from, to);
 
       if (error) throw error;
       
-      // Flatten data for table
-      const formattedMermas = [];
-      records?.forEach(record => {
-        record.waste_items?.forEach(item => {
-          formattedMermas.push({
-            id: item.id,
-            date: record.waste_date,
-            number: record.waste_number,
-            product_name: item.product?.name || 'Desconocido',
-            flavor: record.metadata?.flavor || '-',
-            shift: record.metadata?.shift || '-',
-            batch: record.metadata?.batch_number || '-',
-            quantity: item.quantity,
-            reason: record.reason?.name || '-',
-            notes: record.notes
-          });
-        });
-      });
+      setTotalRecords(count || 0);
+
+      const formattedMermas = (data || []).map(item => ({
+        id: item.id,
+        date: item.waste_record?.waste_date,
+        number: item.waste_record?.waste_number,
+        product_name: item.product?.name || 'Desconocido',
+        flavor: item.waste_record?.metadata?.flavor || '-',
+        shift: item.waste_record?.metadata?.shift || '-',
+        batch: item.waste_record?.metadata?.batch_number || '-',
+        quantity: item.quantity,
+        reason: item.waste_record?.reason?.name || '-',
+        notes: item.waste_record?.notes
+      }));
 
       setMermas(formattedMermas);
-
     } catch (error) {
       console.error('Error al cargar mermas:', error.message);
     } finally {
@@ -273,8 +280,8 @@ export function Mermas() {
       </div>
 
       {/* FORMULARIO DE REGISTRO */}
-      <div className="neo-surface" style={{ padding: '0', borderRadius: '16px', overflow: 'hidden' }}>
-        <div style={{ background: 'var(--color-secondary)', padding: '20px 24px', display: 'flex', alignItems: 'center', gap: '12px', color: 'white' }}>
+      <div className="neo-surface" style={{ padding: '0', borderRadius: '16px' }}>
+        <div style={{ background: 'var(--color-secondary)', padding: '20px 24px', display: 'flex', alignItems: 'center', gap: '12px', color: 'white', borderTopLeftRadius: '16px', borderTopRightRadius: '16px' }}>
           <div style={{ background: 'rgba(255,255,255,0.2)', padding: '8px', borderRadius: '12px' }}>
             <AlertTriangle size={24} />
           </div>
@@ -407,43 +414,43 @@ export function Mermas() {
         </form>
       </div>
 
-      {/* CONTROLES Y RESUMEN */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '20px' }}>
-        <div className="neo-surface" style={{ display: 'flex', gap: '16px', alignItems: 'center', padding: '16px 24px', borderRadius: '20px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div style={{ background: 'var(--accent-gradient)', padding: '10px', borderRadius: '12px', color: 'white' }}>
-              <Calendar size={20} />
+      {/* CONTROLES AVANZADOS Y RESUMEN */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        
+        {/* Top Summary Bar */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '20px' }}>
+          <div className="neo-surface fade-in" style={{ padding: '16px 32px', borderRadius: '20px', background: 'linear-gradient(135deg, var(--surface-color) 0%, rgba(245, 158, 11, 0.05) 100%)', border: '1px solid rgba(245, 158, 11, 0.2)', display: 'flex', alignItems: 'center', gap: '20px', boxShadow: 'var(--neo-shadow-sm)' }}>
+            <div style={{ background: 'rgba(245, 158, 11, 0.1)', padding: '12px', borderRadius: '12px' }}>
+              <AlertTriangle size={28} style={{ color: '#d97706' }} />
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px' }}>
-                Mes de Consulta
-              </label>
-              <input 
-                type="month" 
-                value={monthFilter} 
-                onChange={(e) => setMonthFilter(e.target.value)} 
-                style={{ border: 'none', background: 'transparent', outline: 'none', color: 'var(--text-primary)', fontWeight: 600, fontSize: '1.05rem', cursor: 'pointer' }}
-              />
+            <div>
+              <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 600, marginBottom: '2px' }}>Total Registros Actuales</div>
+              <div style={{ fontSize: '1.8rem', fontWeight: 800, color: '#d97706' }}>
+                {totalRecords} Mermas
+              </div>
             </div>
           </div>
-          <div style={{ width: '1px', height: '40px', background: 'rgba(0,0,0,0.1)', margin: '0 8px' }}></div>
+          
           <button onClick={exportExcel} className="neo-btn" style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#10b981', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.2)', padding: '12px 24px', fontWeight: 600 }}>
             <Download size={18} /> Exportar Reporte
           </button>
         </div>
-        
-        <div className="neo-surface fade-in" style={{ padding: '16px 32px', borderRadius: '20px', background: 'linear-gradient(135deg, var(--surface-color) 0%, rgba(245, 158, 11, 0.05) 100%)', border: '1px solid rgba(245, 158, 11, 0.2)', display: 'flex', alignItems: 'center', gap: '20px', boxShadow: 'var(--neo-shadow-sm)' }}>
-          <div style={{ background: 'rgba(245, 158, 11, 0.1)', padding: '12px', borderRadius: '12px' }}>
-            <AlertTriangle size={28} style={{ color: '#d97706' }} />
-          </div>
-          <div>
-            <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 600, marginBottom: '2px' }}>Total Mermas ({monthFilter})</div>
-            <div style={{ fontSize: '1.8rem', fontWeight: 800, color: '#d97706' }}>
-              {totalMermas} Paletas
-            </div>
-          </div>
-        </div>
+
+        {/* Universal Filter Component */}
+        <NeoAdvancedFilter 
+          globalSearch={globalSearch}
+          onSearchChange={setGlobalSearch}
+          filters={advancedFilters}
+          onFilterApply={applyAdvancedFilter}
+          onClearFilters={clearFilters}
+          filterConfig={[
+            { id: 'date_from', label: 'Desde Fecha', type: 'date' },
+            { id: 'date_to', label: 'Hasta Fecha', type: 'date' },
+            { id: 'shift', label: 'Turno', type: 'select', options: [{val: 'TURNO MAÑANA', label: 'Mañana'}, {val: 'TURNO TARDE', label: 'Tarde'}] }
+          ]}
+        />
       </div>
+
 
       {/* TABLA DE MERMAS */}
       <div className="neo-surface" style={{ padding: '24px', borderRadius: '16px' }}>
@@ -488,6 +495,16 @@ export function Mermas() {
               </tbody>
             </table>
           </div>
+        )}
+        
+        {totalRecords > 0 && !loading && (
+          <NeoPagination 
+            currentPage={page}
+            pageSize={pageSize}
+            totalCount={totalRecords}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+          />
         )}
       </div>
     </div>
