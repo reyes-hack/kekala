@@ -207,8 +207,8 @@ export function Purchases() {
                     <thead>
                       <tr>
                         <th style={{ width: '35%', textAlign: 'left', padding: '16px' }}>CONCEPTO</th>
-                        <th style={{ width: '20%', textAlign: 'center', padding: '16px' }}>UNITARIO ($)</th>
-                        <th style={{ width: '15%', textAlign: 'center', padding: '16px' }}>PIEZAS / CAJA</th>
+                        <th style={{ width: '20%', textAlign: 'center', padding: '16px' }}>UNITARIO (Base)</th>
+                        <th style={{ width: '15%', textAlign: 'center', padding: '16px' }}>CONTENIDO / CAJA</th>
                         <th style={{ width: '20%', textAlign: 'center', padding: '16px' }}>COSTO CAJA ($)</th>
                         <th style={{ width: '10%', textAlign: 'center', padding: '16px' }}>ACCIONES</th>
                       </tr>
@@ -295,13 +295,35 @@ export function Purchases() {
                               </>
                             ) : (
                               <>
-                                <td style={{ textAlign: 'center', padding: '16px', fontSize: '1.05rem', color: 'var(--text-secondary)', fontWeight: p.cost_price ? 600 : 'normal' }}>
-                                  {p.cost_price ? `$ ${Number(p.cost_price).toFixed(2)}` : <span style={{color:'var(--text-muted)'}}>-</span>}
+                                <td style={{ textAlign: 'center', padding: '16px', fontSize: '1.05rem', color: 'var(--text-secondary)', fontWeight: 600 }}>
+                                  {(() => {
+                                    if (p.cost_price) return `$ ${Number(p.cost_price).toFixed(2)}`;
+                                    if (p.box_price && p.items_per_box) {
+                                      const unitPrice = p.box_price / p.items_per_box;
+                                      let suffix = 'pz';
+                                      const lowerUnit = p.unit?.name?.toLowerCase() || '';
+                                      if (lowerUnit.includes('mili')) suffix = 'ml';
+                                      else if (lowerUnit.includes('gram')) suffix = 'g';
+                                      
+                                      return (
+                                        <>
+                                          $ {Number(unitPrice).toFixed(4)} <span style={{fontSize: '0.75rem', fontWeight: 'normal', color: 'var(--text-muted)'}}>/ {suffix}</span>
+                                        </>
+                                      );
+                                    }
+                                    return <span style={{color:'var(--text-muted)'}}>-</span>;
+                                  })()}
                                 </td>
                                 <td style={{ textAlign: 'center', padding: '16px' }}>
                                   {p.items_per_box ? (
                                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'var(--background-color)', padding: '4px 12px', borderRadius: '20px', fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 600, boxShadow: 'var(--neo-shadow-inset)' }}>
-                                      <PackageOpen size={16} style={{ color: 'var(--primary-color)' }} /> {p.items_per_box} pzas
+                                      <PackageOpen size={16} style={{ color: 'var(--primary-color)' }} /> 
+                                      {(() => {
+                                        const lowerUnit = p.unit?.name?.toLowerCase() || '';
+                                        if (lowerUnit.includes('mili')) return `${p.items_per_box / 1000} L`;
+                                        if (lowerUnit.includes('gram')) return `${p.items_per_box / 1000} kg`;
+                                        return `${p.items_per_box} pzas`;
+                                      })()}
                                     </span>
                                   ) : <span style={{color:'var(--text-muted)'}}>-</span>}
                                 </td>

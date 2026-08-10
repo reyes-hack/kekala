@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Plus, Search, Warehouse, Loader2, RefreshCw, X, Play, Store, ChevronLeft, ChevronRight, Edit2, Check, CheckSquare, Edit3, ArrowDownUp, History } from 'lucide-react';
+import { Plus, Search, Warehouse, Loader2, RefreshCw, X, Play, Store, ChevronLeft, ChevronRight, Edit2, Check, CheckSquare, Edit3, ArrowDownUp, History, DollarSign } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { useBranchStore } from '../store/useBranchStore';
 
@@ -14,6 +14,7 @@ export function Inventory() {
   const [units, setUnits] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [showValuationModal, setShowValuationModal] = useState(false);
 
   // Reemplazamos los estados sueltos por el hook maestro
   const {
@@ -107,7 +108,7 @@ export function Inventory() {
       let query = supabase
         .from('products')
         .select(`
-          id, product_code, name, is_active,
+          id, product_code, name, is_active, cost_price, box_price, items_per_box,
           category:category_id(id, name),
           unit:unit_id(id, name),
           branch_inventory (
@@ -210,6 +211,9 @@ export function Inventory() {
       <div className="page-header animate-in">
         <h1>Inventario: {activeBranch ? activeBranch.name : 'Seleccione Sucursal'}</h1>
         <div className="page-header-actions">
+          <button className="neo-btn" onClick={() => setShowValuationModal(true)} title="Ver Valorización" disabled={!activeBranch}>
+            <DollarSign size={18} /> Valorización
+          </button>
           <button className="neo-btn" onClick={() => loadData(page)} title="Recargar" disabled={!activeBranch}>
             <RefreshCw size={18} />
           </button>
@@ -477,6 +481,14 @@ export function Inventory() {
         />
       )}
 
+      {showValuationModal && activeBranch && (
+        <ValuationModal 
+          branchId={activeBranch.id} 
+          branchName={activeBranch.name} 
+          onClose={() => setShowValuationModal(false)} 
+        />
+      )}
+
       {adjustingProduct && (
         <AjustarStockModal
           product={adjustingProduct}
@@ -513,7 +525,7 @@ export function Inventory() {
 function NuevoProductoModal({ categories, units, onClose, onSaved }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-  const [form, setForm] = useState({ product_code: '', name: '', category_id: '', unit_id: '' });
+  const [form, setForm] = useState({ product_code: '', name: '', category_id: '', unit_id: '', cost_price: '', box_price: '', items_per_box: '' });
 
   function handleChange(e) {
     const { name, value } = e.target;
@@ -532,6 +544,9 @@ function NuevoProductoModal({ categories, units, onClose, onSaved }) {
         name: form.name,
         category_id: form.category_id,
         unit_id: form.unit_id,
+        cost_price: form.cost_price ? Number(form.cost_price) : null,
+        box_price: form.box_price ? Number(form.box_price) : null,
+        items_per_box: form.items_per_box ? Number(form.items_per_box) : null,
       });
 
       if (insertErr) throw insertErr;
@@ -568,7 +583,22 @@ function NuevoProductoModal({ categories, units, onClose, onSaved }) {
               {units.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
             </select>
           </div>
-          <div className="form-actions">
+          <div className="form-group" style={{ marginTop: '1rem', borderTop: '1px solid var(--border-color)', paddingTop: '1rem' }}>
+            <label>Precio Unitario Directo (Opcional)</label>
+            <input type="number" step="0.01" name="cost_price" value={form.cost_price} onChange={handleChange} placeholder="Ej. 15.50" />
+            <span style={{fontSize: '0.8rem', color: 'var(--text-muted)'}}>Usar para productos que se compran por pieza (ej. Bases).</span>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '0.5rem' }}>
+            <div className="form-group">
+              <label>Precio de Presentación (Caja/Cubeta)</label>
+              <input type="number" step="0.01" name="box_price" value={form.box_price} onChange={handleChange} placeholder="Ej. 490" />
+            </div>
+            <div className="form-group">
+              <label>Contenido por Presentación</label>
+              <input type="number" step="1" name="items_per_box" value={form.items_per_box} onChange={handleChange} placeholder="Ej. 5000 (ml/g/pz)" />
+            </div>
+          </div>
+          <div className="form-actions" style={{ marginTop: '1.5rem' }}>
             <button type="button" className="neo-btn" onClick={onClose}>Cancelar</button>
             <button type="submit" className="neo-btn neo-btn-primary">{saving ? 'Guardando...' : 'Guardar'}</button>
           </div>
@@ -585,7 +615,10 @@ function EditProductoModal({ product, categories, units, onClose, onSaved }) {
     product_code: product.product_code || '', 
     name: product.name || '', 
     category_id: product.category?.id || '', 
-    unit_id: product.unit?.id || '' 
+    unit_id: product.unit?.id || '',
+    cost_price: product.cost_price || '',
+    box_price: product.box_price || '',
+    items_per_box: product.items_per_box || ''
   });
 
   function handleChange(e) {
@@ -605,6 +638,9 @@ function EditProductoModal({ product, categories, units, onClose, onSaved }) {
         name: form.name,
         category_id: form.category_id,
         unit_id: form.unit_id,
+        cost_price: form.cost_price ? Number(form.cost_price) : null,
+        box_price: form.box_price ? Number(form.box_price) : null,
+        items_per_box: form.items_per_box ? Number(form.items_per_box) : null,
       }).eq('id', product.id);
 
       if (updateErr) throw updateErr;
@@ -641,7 +677,22 @@ function EditProductoModal({ product, categories, units, onClose, onSaved }) {
               {units.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
             </select>
           </div>
-          <div className="form-actions">
+          <div className="form-group" style={{ marginTop: '1rem', borderTop: '1px solid var(--border-color)', paddingTop: '1rem' }}>
+            <label>Precio Unitario Directo (Opcional)</label>
+            <input type="number" step="0.01" name="cost_price" value={form.cost_price} onChange={handleChange} placeholder="Ej. 15.50" />
+            <span style={{fontSize: '0.8rem', color: 'var(--text-muted)'}}>Usar para productos que se compran por pieza (ej. Bases).</span>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '0.5rem' }}>
+            <div className="form-group">
+              <label>Precio de Presentación (Caja/Cubeta)</label>
+              <input type="number" step="0.01" name="box_price" value={form.box_price} onChange={handleChange} placeholder="Ej. 490" />
+            </div>
+            <div className="form-group">
+              <label>Contenido por Presentación</label>
+              <input type="number" step="1" name="items_per_box" value={form.items_per_box} onChange={handleChange} placeholder="Ej. 5000 (ml/g/pz)" />
+            </div>
+          </div>
+          <div className="form-actions" style={{ marginTop: '1.5rem' }}>
             <button type="button" className="neo-btn" onClick={onClose}>Cancelar</button>
             <button type="submit" className="neo-btn neo-btn-primary">{saving ? 'Guardando...' : 'Guardar Cambios'}</button>
           </div>
@@ -860,6 +911,90 @@ function HistorialMovimientosModal({ product, activeBranch, onClose }) {
         <div className="form-actions" style={{ marginTop: '1.5rem' }}>
           <button type="button" className="neo-btn neo-btn-primary" onClick={onClose}>Cerrar</button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ==========================================
+// COMPONENTE: ValuationModal
+// ==========================================
+function ValuationModal({ branchId, branchName, onClose }) {
+  const [data, setData] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [total, setTotal] = useState(0);
+
+  useEffect(() => {
+    async function fetchValuation() {
+      try {
+        const { data: valData, error } = await supabase.rpc('get_inventory_valuation', { p_branch_id: branchId });
+        if (error) throw error;
+        
+        setData(valData || []);
+        const t = (valData || []).reduce((acc, row) => acc + Number(row.total_value), 0);
+        setTotal(t);
+      } catch (err) {
+        console.error('Error fetching valuation:', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchValuation();
+  }, [branchId]);
+
+  return (
+    <div className="modal-overlay">
+      <div className="modal-content" style={{ maxWidth: '600px' }}>
+        <div className="modal-header">
+          <h2>Valorización de Inventario</h2>
+          <button className="modal-close" onClick={onClose}><X size={20} /></button>
+        </div>
+        
+        <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem', fontWeight: 500 }}>
+          {branchName}
+        </p>
+
+        {loading ? (
+          <div style={{ textAlign: 'center', padding: '2rem' }}>
+            <Loader2 size={40} className="spin" style={{ color: 'var(--color-secondary)' }} />
+          </div>
+        ) : (
+          <>
+            <div className="stat-card neo-surface" style={{ marginBottom: '1.5rem', background: 'var(--accent-gradient)' }}>
+              <span className="stat-label" style={{ color: 'rgba(255,255,255,0.7)' }}>Gran Total Invertido</span>
+              <span className="stat-value" style={{ color: '#fff', fontSize: '2.5rem' }}>
+                ${total.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+              </span>
+            </div>
+
+            <div style={{ maxHeight: '300px', overflowY: 'auto', paddingRight: '0.5rem' }}>
+              {data.map((row, idx) => (
+                <div key={idx} style={{ 
+                  display: 'flex', 
+                  justifyContent: 'space-between', 
+                  padding: '1rem', 
+                  borderBottom: '1px solid rgba(26, 79, 153, 0.1)',
+                  alignItems: 'center'
+                }}>
+                  <div style={{ display: 'flex', flexDirection: 'column' }}>
+                    <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>{row.product_name}</span>
+                    <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                      {row.category_name} | {Number(row.current_stock).toLocaleString('es-MX', { maximumFractionDigits: 2 })} {row.unit_name} x ${Number(row.cost_price).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                  <span style={{ fontWeight: 800, color: 'var(--text-primary)' }}>
+                    ${Number(row.total_value).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+              ))}
+              {data.length === 0 && (
+                <div style={{ textAlign: 'center', padding: '1rem', color: 'var(--text-muted)' }}>
+                  No hay productos valorizables en esta sucursal.
+                </div>
+              )}
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
