@@ -4,7 +4,8 @@ import { useBranchStore } from '../store/useBranchStore';
 import { Plus, Store, MapPin, Phone, Hash, Edit2, CheckCircle2, XCircle, Building2, Map } from 'lucide-react';
 
 export function Sucursales() {
-  const { activeBranch, fetchBranches } = useBranchStore();
+  const { activeBranch, fetchBranches, branches, loading: branchesLoading } = useBranchStore();
+  const [sucursales, setSucursales] = useState([]);
   const [branchesList, setBranchesList] = useState([]);
   const [loading, setLoading] = useState(true);
   
@@ -181,8 +182,14 @@ export function Sucursales() {
       </div>
 
       {/* GRID DE SUCURSALES */}
-      {loading ? (
+      {branchesLoading ? (
         <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>Cargando sucursales...</div>
+      ) : branches.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '60px', color: 'var(--text-muted)' }}>
+          <Store size={48} style={{ margin: '0 auto 16px', opacity: 0.5 }} />
+          <h3>Sin sucursales asignadas</h3>
+          <p>No tienes permisos para gestionar ninguna sucursal.</p>
+        </div>
       ) : branchesList.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--text-muted)' }}>No hay sucursales creadas.</div>
       ) : (

@@ -8,7 +8,7 @@ import { NeoAdvancedFilter } from '../components/NeoAdvancedFilter';
 import { NeoPagination } from '../components/NeoPagination';
 
 export function Inventory() {
-  const { activeBranch } = useBranchStore();
+  const { activeBranch, loading: branchesLoading } = useBranchStore();
   const [inventoryList, setInventoryList] = useState([]);
   const [categories, setCategories] = useState([]);
   const [units, setUnits] = useState([]);
@@ -44,7 +44,7 @@ export function Inventory() {
 
   // Efecto para búsqueda, filtros y cambio de sucursal con Debounce unificado
   useEffect(() => {
-    if (!activeBranch) return;
+    // Eliminamos el return temprano para permitir que loadData limpie el estado loading si es null
 
     const delayDebounceFn = setTimeout(() => {
       loadData(page);
@@ -70,7 +70,10 @@ export function Inventory() {
 
   // Carga de datos optimizada con filtros integrados
   async function loadData(targetPage = page) {
-    if (!activeBranch) return;
+    if (!activeBranch) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       // 1. Obtener productos de branch_inventory para filtrar por estado de stock
@@ -954,7 +957,11 @@ function ValuationModal({ branchId, branchName, onClose }) {
           {branchName}
         </p>
 
-        {loading ? (
+        {!branchId ? (
+          <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
+            <p>Debe seleccionar una sucursal para ver la valorización.</p>
+          </div>
+        ) : loading ? (
           <div style={{ textAlign: 'center', padding: '2rem' }}>
             <Loader2 size={40} className="spin" style={{ color: 'var(--color-secondary)' }} />
           </div>
