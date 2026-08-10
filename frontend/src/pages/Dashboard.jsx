@@ -49,40 +49,8 @@ function mergeReports(reports) {
   return merged;
 }
 
-function getDummyData(branchId, targetMonth) {
-  return {
-    period: targetMonth,
-    branch_id: branchId,
-    revenues: { gross_sales: 250767.50, discounts: 2862.50, net_sales: 247905.00 },
-    cogs: {
-      total: 163393.31,
-      breakdown: [
-        { concept: "Pedido 1", amount: 49978.00 },
-        { concept: "Pedido 2", amount: 39389.66 },
-        { concept: "Pedido 3", amount: 26091.65 },
-        { concept: "Pedido 4+", amount: 47934.00 }
-      ]
-    },
-    gross_profit: 84511.69,
-    operating_expenses: {
-      total: 59433.00,
-      breakdown: [
-        { category: "Renta Comercial", amount: 22500.00 },
-        { category: "Sueldos y Salarios", amount: 22500.00 },
-        { category: "Pago Mkt", amount: 3480.00 },
-        { category: "Luz", amount: 2000.00 },
-        { category: "Internet", amount: 400.00 },
-        { category: "Otros Gastos", amount: 8553.00 }
-      ]
-    },
-    operating_profit: 25078.69,
-    financial_expenses: {
-      total: 2322.49,
-      breakdown: [{ category: "Comisiones Bancarias (2.5%)", amount: 2322.49 }]
-    },
-    net_profit: 22756.20
-  };
-}
+// Datos simulados eliminados por Regla 8 (Cero Código Fantasma)
+// El dashboard debe leer exclusivamente del RPC real get_income_statement.
 
 export function Dashboard() {
   const { branches } = useBranchStore();
@@ -153,9 +121,8 @@ export function Dashboard() {
       }));
       setReportData(mergeReports(results));
     } catch (err) {
-      console.log('RPC no disponible, usando datos simulados.', err);
-      const dummyReports = selectedBranchIds.map(id => getDummyData(id, targetMonth));
-      setReportData(mergeReports(dummyReports));
+      console.log('RPC get_income_statement no disponible. Mostrando estado En Construcción.', err);
+      setReportData(null);
     } finally {
       setLoading(false);
     }
@@ -616,8 +583,23 @@ export function Dashboard() {
         </div>
       </div>
 
-      {loading || !reportData ? (
+      {loading ? (
         <div style={{ textAlign: 'center', padding: '100px', color: 'var(--text-muted)' }}>Calculando Estado de Resultados...</div>
+      ) : !reportData ? (
+        <div style={{ padding: '60px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '400px' }}>
+          <div className="glass-panel" style={{ padding: '40px', textAlign: 'center', maxWidth: '500px' }}>
+            <div style={{ width: '80px', height: '80px', margin: '0 auto 24px', background: 'var(--accent-gradient)', borderRadius: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: 'var(--accent-glow)' }}>
+              <Activity size={40} color="white" />
+            </div>
+            <h2 style={{ color: 'var(--text-primary)', marginBottom: '12px', fontSize: '1.8rem', fontWeight: 800 }}>Módulo en Construcción</h2>
+            <p style={{ color: 'var(--text-muted)', lineHeight: '1.6', marginBottom: '24px' }}>
+              El Dashboard de Estado de Resultados está a la espera de que el equipo de Base de Datos implemente la función <strong>get_income_statement</strong> (Asignación 018).
+            </p>
+            <div style={{ padding: '12px', background: 'rgba(255,165,0,0.1)', border: '1px solid rgba(255,165,0,0.3)', borderRadius: '12px', color: '#f59e0b', fontSize: '0.9rem', fontWeight: 600 }}>
+              Regla 8: Cero Código Fantasma
+            </div>
+          </div>
+        </div>
       ) : (
         <>
           {/* KPI Cards */}

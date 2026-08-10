@@ -13,6 +13,9 @@ import { CortesDeCaja } from './pages/CortesDeCaja';
 import { ComingSoon } from './pages/ComingSoon';
 import './index.css';
 import { Configuracion } from './pages/Configuracion';
+import { LoginNIP } from './pages/LoginNIP';
+import { LoginAdmin } from './pages/LoginAdmin';
+import { ProtectedRoute } from './components/ProtectedRoute';
 
 /* ════════════════════════════════════════════
    MÓDULO DE ENRUTAMIENTO — KEKALA ERP
@@ -22,7 +25,12 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<MainLayout />}>
+        <Route path="/login" element={<LoginNIP />} />
+        <Route path="/login-admin" element={<LoginAdmin />} />
+        
+        {/* Rutas Protegidas */}
+        <Route element={<ProtectedRoute />}>
+          <Route path="/" element={<MainLayout />}>
           <Route index element={<Dashboard />} />
           <Route path="inventario" element={<Inventory />} />
           <Route path="configuracion" element={<Configuracion />} />
@@ -34,8 +42,9 @@ function App() {
           <Route path="cortes" element={<CortesDeCaja />} />
           <Route path="*" element={<Navigate to="/inventario" replace />} />
         </Route>
-      </Routes>
-    </BrowserRouter>
+      </Route>
+    </Routes>
+  </BrowserRouter>
   );
 }
 

@@ -9,8 +9,10 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  MapPin
+  MapPin,
+  LogOut
 } from 'lucide-react';
+import { supabase } from '../lib/supabaseClient';
 import { useBranchStore } from '../store/useBranchStore';
 import { NeoSelect } from './NeoSelect';
 
@@ -120,6 +122,26 @@ export function Sidebar() {
               {!isCollapsed && <span style={{ whiteSpace: 'nowrap', overflow: 'hidden' }}>{tab.label}</span>}
             </NavLink>
           ))}
+          <div style={{ flex: 1 }} />
+          <button
+            onClick={() => supabase.auth.signOut()}
+            className="nav-item"
+            style={{
+              justifyContent: isCollapsed ? 'center' : 'flex-start',
+              padding: isCollapsed ? '10px' : '10px 14px',
+              borderRadius: 'var(--radius-sm)',
+              gap: isCollapsed ? 0 : '12px',
+              background: 'transparent',
+              border: 'none',
+              color: 'var(--text-muted)',
+              cursor: 'pointer',
+              marginTop: 'auto'
+            }}
+            title={isCollapsed ? 'Cerrar Sesión' : ''}
+          >
+            <LogOut size={20} style={{ flexShrink: 0 }} />
+            {!isCollapsed && <span style={{ whiteSpace: 'nowrap', overflow: 'hidden' }}>Cerrar Sesión</span>}
+          </button>
         </nav>
       </aside>
 
