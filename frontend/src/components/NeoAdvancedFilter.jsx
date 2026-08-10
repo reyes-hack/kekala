@@ -30,7 +30,7 @@ export function NeoAdvancedFilter({
   const activeFiltersCount = Object.keys(filters).filter(k => filters[k]).length;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', width: '100%' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', width: '100%', position: 'relative', zIndex: drawerOpen ? 50 : 1 }}>
       
       {/* Top Bar: Search + Filter Button */}
       <div style={{ display: 'flex', gap: '16px', alignItems: 'center', width: '100%', flexWrap: 'wrap' }}>
@@ -82,13 +82,13 @@ export function NeoAdvancedFilter({
 
       {/* Advanced Filters Panel (Drawer/Accordion) */}
       {drawerOpen && filterConfig.length > 0 && (
-        <div className="neo-surface" style={{ padding: '24px', borderRadius: '20px', display: 'flex', flexDirection: 'column', gap: '20px', animation: 'fadeIn 0.2s ease-out' }}>
+        <div className="glass-panel" style={{ padding: '24px', borderRadius: '24px', display: 'flex', flexDirection: 'column', gap: '20px', animation: 'fadeIn 0.2s ease-out', position: 'relative', zIndex: 60 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <h3 style={{ margin: 0, color: 'var(--text-primary)', fontSize: '1.2rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Filter size={20} style={{ color: 'var(--primary-color)' }} /> Opciones Avanzadas
+            <h3 style={{ margin: 0, color: 'var(--text-primary)', fontSize: '1.2rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Filter size={20} style={{ color: '#1a4f99' }} /> Opciones Avanzadas
             </h3>
             {activeFiltersCount > 0 && (
-              <button onClick={onClearFilters} style={{ background: 'transparent', border: 'none', color: 'var(--status-danger)', fontWeight: 600, cursor: 'pointer', fontSize: '0.9rem' }}>
+              <button onClick={onClearFilters} style={{ background: 'transparent', border: 'none', color: 'var(--status-danger)', fontWeight: 700, cursor: 'pointer', fontSize: '0.9rem' }}>
                 Limpiar Todo
               </button>
             )}
@@ -97,7 +97,7 @@ export function NeoAdvancedFilter({
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '24px' }}>
             {filterConfig.map(conf => (
               <div key={conf.id} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <label style={{ fontSize: '0.85rem', color: 'var(--text-primary)', fontWeight: 600 }}>{conf.label}</label>
+                <label style={{ fontSize: '0.85rem', color: 'var(--text-primary)', fontWeight: 700 }}>{conf.label}</label>
                 
                 {conf.type === 'select' && (
                   <NeoSelect

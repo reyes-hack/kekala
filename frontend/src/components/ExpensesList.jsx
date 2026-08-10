@@ -204,11 +204,11 @@ export function ExpensesList() {
 
       {/* FORMULARIO DE REGISTRO (Estilo rápido) */}
       <div className="neo-surface" style={{ padding: '0', borderRadius: '16px' }}>
-        <div style={{ background: 'var(--primary-color)', padding: '20px 24px', display: 'flex', alignItems: 'center', gap: '12px', color: 'white', borderTopLeftRadius: '16px', borderTopRightRadius: '16px' }}>
-          <div style={{ background: 'rgba(255,255,255,0.2)', padding: '8px', borderRadius: '12px' }}>
+        <div style={{ background: 'var(--accent-gradient)', padding: '20px 24px', display: 'flex', alignItems: 'center', gap: '12px', color: 'white', borderTopLeftRadius: '24px', borderTopRightRadius: '24px', boxShadow: 'var(--accent-glow)' }}>
+          <div className="glass-icon-circle" style={{ padding: '10px', borderRadius: '14px', color: 'white', background: 'rgba(255,255,255,0.2)' }}>
             <Wallet size={24} />
           </div>
-          <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 600, letterSpacing: '0.5px' }}>
+          <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800, letterSpacing: '0.5px', color: 'white' }}>
             Registrar Nuevo Gasto
           </h2>
         </div>

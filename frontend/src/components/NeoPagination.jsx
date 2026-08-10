@@ -16,11 +16,11 @@ export function NeoPagination({
   const endRecord = Math.min(currentPage * pageSize, totalCount);
 
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', padding: '16px 24px', background: 'var(--surface-color)', borderRadius: '16px', marginTop: '20px' }}>
+    <div className="glass-panel" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', padding: '16px 24px', borderRadius: '20px', marginTop: '20px' }}>
       
       {/* Metrics */}
       <div style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>
-        Mostrando <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{totalCount === 0 ? 0 : startRecord}</span> a <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{endRecord}</span> de <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{totalCount}</span> resultados
+        Mostrando <span style={{ fontWeight: 800, color: 'var(--text-primary)' }}>{totalCount === 0 ? 0 : startRecord}</span> a <span style={{ fontWeight: 800, color: 'var(--text-primary)' }}>{endRecord}</span> de <span style={{ fontWeight: 800, color: 'var(--text-primary)' }}>{totalCount}</span> resultados
       </div>
 
       {/* Controls */}
@@ -33,7 +33,7 @@ export function NeoPagination({
             className="neo-input"
             value={pageSize}
             onChange={(e) => onPageSizeChange(Number(e.target.value))}
-            style={{ padding: '6px 12px', borderRadius: '8px', border: 'none', background: 'var(--background-color)', color: 'var(--text-primary)', fontWeight: 600, cursor: 'pointer' }}
+            style={{ padding: '6px 12px', borderRadius: '10px', background: 'rgba(255, 255, 255, 0.5)', color: 'var(--text-primary)', fontWeight: 700, cursor: 'pointer', width: 'auto' }}
           >
             <option value={10}>10</option>
             <option value={25}>25</option>
@@ -47,19 +47,21 @@ export function NeoPagination({
           <button 
             onClick={() => onPageChange(currentPage - 1)}
             disabled={currentPage <= 1}
-            style={{ width: '36px', height: '36px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: currentPage <= 1 ? 'not-allowed' : 'pointer', background: currentPage <= 1 ? 'transparent' : 'var(--background-color)', border: 'none', color: currentPage <= 1 ? 'var(--text-muted)' : 'var(--text-primary)', opacity: currentPage <= 1 ? 0.5 : 1 }}
+            className="glass-btn"
+            style={{ width: '36px', height: '36px', padding: 0, borderRadius: '10px', opacity: currentPage <= 1 ? 0.4 : 1, cursor: currentPage <= 1 ? 'not-allowed' : 'pointer' }}
           >
             <ChevronLeft size={20} />
           </button>
           
-          <div style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-primary)', minWidth: '80px', textAlign: 'center' }}>
+          <div style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--text-primary)', minWidth: '90px', textAlign: 'center' }}>
             Página {currentPage} de {totalPages}
           </div>
 
           <button 
             onClick={() => onPageChange(currentPage + 1)}
             disabled={currentPage >= totalPages}
-            style={{ width: '36px', height: '36px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: currentPage >= totalPages ? 'not-allowed' : 'pointer', background: currentPage >= totalPages ? 'transparent' : 'var(--background-color)', border: 'none', color: currentPage >= totalPages ? 'var(--text-muted)' : 'var(--text-primary)', opacity: currentPage >= totalPages ? 0.5 : 1 }}
+            className="glass-btn"
+            style={{ width: '36px', height: '36px', padding: 0, borderRadius: '10px', opacity: currentPage >= totalPages ? 0.4 : 1, cursor: currentPage >= totalPages ? 'not-allowed' : 'pointer' }}
           >
             <ChevronRight size={20} />
           </button>

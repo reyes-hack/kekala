@@ -89,13 +89,13 @@ export const NeoDatePicker = ({ name, value, onChange, required, placeholder = "
   const displayValue = value ? new Date(value + 'T12:00:00').toLocaleDateString('es-MX', {day: '2-digit', month: '2-digit', year: 'numeric'}) : '';
 
   return (
-    <div ref={wrapperRef} style={{ position: 'relative', width: '100%' }}>
+    <div ref={wrapperRef} style={{ position: 'relative', width: '100%', zIndex: open ? 9999 : 1 }}>
       <div 
-        className="neo-surface" 
-        style={{ padding: '4px 16px', borderRadius: '12px', display: 'flex', alignItems: 'center', cursor: 'pointer', height: '44px' }}
+        className="glass-panel" 
+        style={{ padding: '4px 16px', borderRadius: '14px', display: 'flex', alignItems: 'center', cursor: 'pointer', height: '44px', background: 'rgba(255, 255, 255, 0.48)' }}
         onClick={() => setOpen(!open)}
       >
-        <div style={{ flex: 1, color: value ? 'var(--text-primary)' : 'var(--text-muted)', fontWeight: 500, fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div style={{ flex: 1, color: value ? 'var(--text-primary)' : 'var(--text-muted)', fontWeight: 600, fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
           {displayValue || placeholder}
         </div>
         <Calendar size={18} style={{ color: 'var(--text-muted)' }} />
@@ -105,24 +105,44 @@ export const NeoDatePicker = ({ name, value, onChange, required, placeholder = "
       <input type="text" style={{display:'none'}} required={required} value={value} onChange={()=>{}} />
       
       {open && (
-         <div className="neo-surface" style={{ position: 'absolute', top: '100%', left: 0, zIndex: 9999, marginTop: '12px', padding: '16px', borderRadius: '20px', width: '280px', boxShadow: 'var(--neo-shadow-hover)' }}>
+         <div 
+           className="glass-panel" 
+           style={{ 
+             position: 'absolute', 
+             top: '100%', 
+             left: 0, 
+             zIndex: 9999, 
+             marginTop: '8px', 
+             padding: '18px', 
+             borderRadius: '24px', 
+             width: '290px', 
+             background: 'rgba(255, 255, 255, 0.88)',
+             backdropFilter: 'saturate(200%) blur(32px)',
+             WebkitBackdropFilter: 'saturate(200%) blur(32px)',
+             border: '1.5px solid rgba(255, 255, 255, 0.95)',
+             boxShadow: '0 20px 50px rgba(15, 39, 71, 0.18), inset 0 1px 0 rgba(255, 255, 255, 1)',
+             animation: 'slideUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)'
+           }}
+         >
             
             {/* Calendar Header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
               <div 
                 onClick={handlePrevMonth}
-                style={{ width: '32px', height: '32px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', background: 'var(--surface-color)', boxShadow: 'var(--neo-shadow-flat)' }}
+                className="glass-btn"
+                style={{ width: '32px', height: '32px', borderRadius: '50%', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
               >
                 <ChevronLeft size={18} style={{color: 'var(--text-secondary)'}}/>
               </div>
               
-              <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '1rem', textTransform: 'capitalize' }}>
+              <div style={{ fontWeight: 800, color: 'var(--text-primary)', fontSize: '1rem', textTransform: 'capitalize' }}>
                 {monthNames[currentMonth.getMonth()]} {currentMonth.getFullYear()}
               </div>
 
               <div 
                 onClick={handleNextMonth}
-                style={{ width: '32px', height: '32px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', background: 'var(--surface-color)', boxShadow: 'var(--neo-shadow-flat)' }}
+                className="glass-btn"
+                style={{ width: '32px', height: '32px', borderRadius: '50%', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
               >
                 <ChevronRight size={18} style={{color: 'var(--text-secondary)'}}/>
               </div>

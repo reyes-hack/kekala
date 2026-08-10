@@ -65,28 +65,28 @@ export function NotificationsBell() {
     <div style={{ position: 'relative' }}>
       <button 
         onClick={() => setIsOpen(!isOpen)}
+        className="glass-btn"
         style={{ 
-          background: 'var(--surface-color)', 
-          border: 'none', 
           borderRadius: '50%', 
           width: '48px', 
           height: '48px', 
+          padding: 0,
           display: 'flex', 
           alignItems: 'center', 
           justifyContent: 'center',
           cursor: 'pointer',
-          boxShadow: 'var(--neo-shadow-flat)',
           color: 'var(--text-primary)',
           position: 'relative'
         }}
+        title="Notificaciones"
       >
-        <Bell size={24} />
+        <Bell size={22} />
         {unreadCount > 0 && (
           <span style={{ 
             position: 'absolute', 
-            top: '8px', 
-            right: '10px', 
-            background: '#ef4444', 
+            top: '6px', 
+            right: '8px', 
+            background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)', 
             color: 'white', 
             fontSize: '0.65rem', 
             fontWeight: 'bold', 
@@ -96,7 +96,8 @@ export function NotificationsBell() {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            border: '2px solid var(--surface-color)'
+            border: '2px solid rgba(255, 255, 255, 0.9)',
+            boxShadow: '0 2px 8px rgba(239, 68, 68, 0.5)'
           }}>
             {unreadCount}
           </span>
@@ -104,26 +105,32 @@ export function NotificationsBell() {
       </button>
 
       {isOpen && (
-        <div style={{ 
-          position: 'absolute', 
-          top: '60px', 
-          right: '0', 
-          width: '350px', 
-          background: 'var(--surface-color)', 
-          borderRadius: '16px', 
-          boxShadow: 'var(--neo-shadow-hover)', 
-          zIndex: 100,
-          border: '1px solid var(--border-color)',
-          overflow: 'hidden'
-        }}>
-          <div style={{ padding: '16px', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <h3 style={{ margin: 0, fontSize: '1rem', color: 'var(--text-primary)' }}>Notificaciones</h3>
-            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{unreadCount} nuevas</span>
+        <div 
+          className="glass-panel"
+          style={{ 
+            position: 'absolute', 
+            top: '60px', 
+            right: '0', 
+            width: '350px', 
+            background: 'rgba(255, 255, 255, 0.85)', 
+            backdropFilter: 'saturate(200%) blur(32px)',
+            WebkitBackdropFilter: 'saturate(200%) blur(32px)',
+            borderRadius: '20px', 
+            boxShadow: '0 20px 50px rgba(15, 39, 71, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.9)', 
+            zIndex: 100,
+            border: '1.5px solid rgba(255, 255, 255, 0.9)',
+            overflow: 'hidden',
+            animation: 'slideUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)'
+          }}
+        >
+          <div style={{ padding: '16px 20px', borderBottom: '1px solid rgba(255, 255, 255, 0.6)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255, 255, 255, 0.4)' }}>
+            <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 800, color: 'var(--text-primary)' }}>Notificaciones</h3>
+            <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)' }}>{unreadCount} nuevas</span>
           </div>
           
           <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
             {notifications.length === 0 ? (
-              <div style={{ padding: '32px', textAlign: 'center', color: 'var(--text-muted)' }}>
+              <div style={{ padding: '32px', textAlign: 'center', color: 'var(--text-muted)', fontWeight: 500 }}>
                 No tienes notificaciones.
               </div>
             ) : (
@@ -132,30 +139,29 @@ export function NotificationsBell() {
                   key={n.id} 
                   onClick={() => markAsRead(n.id)}
                   style={{ 
-                    padding: '16px', 
-                    borderBottom: '1px solid var(--border-color)', 
-                    background: 'var(--surface-color)',
-                    boxShadow: n.is_read ? 'none' : 'var(--neo-shadow-inset)',
+                    padding: '14px 18px', 
+                    borderBottom: '1px solid rgba(255, 255, 255, 0.4)', 
+                    background: n.is_read ? 'transparent' : 'rgba(255, 255, 255, 0.4)',
                     cursor: 'pointer',
                     display: 'flex',
                     gap: '12px',
-                    transition: 'all var(--transition-fast)'
+                    transition: 'all 0.2s ease'
                   }}
-                  onMouseEnter={(e) => e.currentTarget.style.boxShadow = 'var(--neo-shadow-hover)'}
-                  onMouseLeave={(e) => e.currentTarget.style.boxShadow = n.is_read ? 'none' : 'var(--neo-shadow-inset)'}
+                  onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.7)'}
+                  onMouseLeave={(e) => e.currentTarget.style.background = n.is_read ? 'transparent' : 'rgba(255, 255, 255, 0.4)'}
                 >
                   <div style={{ marginTop: '2px' }}>
                     {getIcon(n.type)}
                   </div>
-                  <div>
-                    <h4 style={{ margin: '0 0 4px 0', fontSize: '0.9rem', color: 'var(--text-primary)' }}>{n.title}</h4>
+                  <div style={{ flex: 1 }}>
+                    <h4 style={{ margin: '0 0 4px 0', fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-primary)' }}>{n.title}</h4>
                     <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: '1.4' }}>{n.message}</p>
-                    <span style={{ display: 'block', marginTop: '6px', fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                    <span style={{ display: 'block', marginTop: '6px', fontSize: '0.72rem', fontWeight: 500, color: 'var(--text-muted)' }}>
                       {new Date(n.created_at).toLocaleString('es-MX')}
                     </span>
                   </div>
                   {!n.is_read && (
-                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--primary-color)', alignSelf: 'center', marginLeft: 'auto', boxShadow: '0 0 8px var(--primary-color)' }} />
+                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#1a4f99', alignSelf: 'center', marginLeft: 'auto', boxShadow: '0 0 10px rgba(26, 79, 153, 0.8)' }} />
                   )}
                 </div>
               ))

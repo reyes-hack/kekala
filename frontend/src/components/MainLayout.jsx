@@ -8,36 +8,33 @@ export function MainLayout() {
   const navigate = useNavigate();
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh' }}>
+    <div className="app-container dashboard-liquid-bg" style={{ display: 'flex', minHeight: '100vh' }}>
       <Sidebar />
       <main style={{ flex: 1, minWidth: 0, padding: '80px 2.5rem 2rem 2.5rem', position: 'relative', overflowX: 'hidden' }}>
         <div style={{ position: 'fixed', top: '16px', right: '24px', zIndex: 150, display: 'flex', gap: '12px', alignItems: 'center' }}>
           <NotificationsBell />
           <button 
             onClick={() => navigate('/configuracion')}
+            className="glass-btn"
             style={{ 
-              background: 'var(--surface-color)', 
-              border: 'none', 
               borderRadius: '50%', 
               width: '48px', 
               height: '48px', 
+              padding: 0,
               display: 'flex', 
               alignItems: 'center', 
               justifyContent: 'center',
               cursor: 'pointer',
-              boxShadow: 'var(--neo-shadow-flat)',
-              color: 'var(--text-primary)',
-              transition: 'box-shadow 0.2s'
+              color: 'var(--text-primary)'
             }}
-            onMouseEnter={(e) => e.currentTarget.style.boxShadow = 'var(--neo-shadow-hover)'}
-            onMouseLeave={(e) => e.currentTarget.style.boxShadow = 'var(--neo-shadow-flat)'}
-            onMouseDown={(e) => e.currentTarget.style.boxShadow = 'var(--neo-shadow-inset)'}
-            onMouseUp={(e) => e.currentTarget.style.boxShadow = 'var(--neo-shadow-hover)'}
+            title="Configuración"
           >
-            <Settings size={24} />
+            <Settings size={22} />
           </button>
         </div>
-        <Outlet />
+        <div className="glass-content">
+          <Outlet />
+        </div>
       </main>
     </div>
   );

@@ -528,8 +528,8 @@ export function Dashboard() {
   if (branches.length === 0) return <div style={{ textAlign: 'center', padding: '40px' }}>Cargando sucursales...</div>;
 
   return (
-    <div className="fade-in" style={{ paddingBottom: '60px' }}>
-
+    <div className="fade-in dashboard-liquid-bg" style={{ paddingBottom: '60px', padding: '24px' }}>
+      <div className="glass-content">
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
@@ -607,10 +607,10 @@ export function Dashboard() {
             </div>
           </div>
 
-          <button onClick={exportToPDF} className="neo-btn" style={{ display: 'flex', gap: '8px', color: '#ef4444' }}>
+          <button onClick={exportToPDF} className="glass-btn" style={{ gap: '8px', color: '#ef4444' }}>
             <FileText size={18} /> PDF
           </button>
-          <button onClick={exportToExcel} className="neo-btn" style={{ display: 'flex', gap: '8px', color: '#10b981' }}>
+          <button onClick={exportToExcel} className="glass-btn" style={{ gap: '8px', color: '#10b981' }}>
             <Download size={18} /> Excel
           </button>
         </div>
@@ -630,29 +630,29 @@ export function Dashboard() {
 
           {/* Charts */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginBottom: '24px' }}>
-            <div className="neo-surface" style={{ padding: '24px', borderRadius: '24px' }}>
-              <h3 style={{ margin: '0 0 16px 0', textAlign: 'center' }}>Distribución del Ingreso</h3>
+            <div className="glass-panel" style={{ padding: '24px' }}>
+              <h3 style={{ margin: '0 0 16px 0', textAlign: 'center', color: 'var(--text-primary)' }}>Distribución del Ingreso</h3>
               <div style={{ height: '280px' }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie data={pieData} cx="50%" cy="50%" innerRadius={55} outerRadius={95} paddingAngle={4} dataKey="value">
                       {pieData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                     </Pie>
-                    <Tooltip formatter={(v) => fc(v)} />
+                    <Tooltip formatter={(v) => fc(v)} contentStyle={{ background: 'rgba(255,255,255,0.8)', borderRadius: '12px', backdropFilter: 'blur(10px)' }} />
                     <Legend />
                   </PieChart>
                 </ResponsiveContainer>
               </div>
             </div>
 
-            <div className="neo-surface" style={{ padding: '24px', borderRadius: '24px' }}>
-              <h3 style={{ margin: '0 0 16px 0', textAlign: 'center' }}>Desglose de Gastos Operativos</h3>
+            <div className="glass-panel" style={{ padding: '24px' }}>
+              <h3 style={{ margin: '0 0 16px 0', textAlign: 'center', color: 'var(--text-primary)' }}>Desglose de Gastos Operativos</h3>
               <div style={{ height: '280px' }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={barData}>
                     <XAxis dataKey="name" fontSize={10} tickMargin={8} />
                     <YAxis tickFormatter={v => `$${(v / 1000).toFixed(0)}k`} fontSize={10} />
-                    <Tooltip formatter={(v) => fc(v)} cursor={{ fill: 'rgba(0,0,0,0.04)' }} />
+                    <Tooltip formatter={(v) => fc(v)} cursor={{ fill: 'rgba(255,255,255,0.4)' }} contentStyle={{ background: 'rgba(255,255,255,0.8)', borderRadius: '12px', backdropFilter: 'blur(10px)' }} />
                     <Bar dataKey="amount" fill="#1a4f99" radius={[6, 6, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
@@ -661,7 +661,7 @@ export function Dashboard() {
           </div>
 
           {/* Income Statement Table */}
-          <div className="neo-surface" style={{ borderRadius: '24px', overflow: 'hidden' }}>
+          <div className="glass-panel" style={{ overflow: 'hidden' }}>
             <div style={{ background: 'var(--accent-gradient)', color: 'white', padding: '16px 24px', textAlign: 'center', boxShadow: 'var(--accent-glow)' }}>
               <h2 style={{ margin: 0, fontSize: '1.1rem', letterSpacing: '0.05em' }}>
                 ESTADO DE RESULTADOS — {monthLabel.toUpperCase()} {selYear}
@@ -709,22 +709,23 @@ export function Dashboard() {
           </div>
         </>
       )}
+      </div>
     </div>
   );
 }
 
 function KPICard({ title, amount, subtitle, icon, isSuccess, fc }) {
   return (
-    <div className="neo-surface" style={{ padding: '20px', borderRadius: '20px', display: 'flex', alignItems: 'center', gap: '14px' }}>
-      <div style={{ padding: '10px', borderRadius: '50%', background: 'var(--bg-color)', boxShadow: 'var(--neo-shadow-inset)', flexShrink: 0 }}>
+    <div className="glass-panel" style={{ padding: '20px', display: 'flex', alignItems: 'center', gap: '14px' }}>
+      <div className="glass-icon-circle" style={{ padding: '12px', borderRadius: '50%', flexShrink: 0 }}>
         {icon}
       </div>
       <div style={{ minWidth: 0 }}>
-        <h4 style={{ margin: '0 0 2px 0', color: 'var(--text-muted)', fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{title}</h4>
-        <div style={{ fontSize: '1.35rem', fontWeight: 800, color: isSuccess ? '#10b981' : 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+        <h4 style={{ margin: '0 0 2px 0', color: 'var(--text-secondary)', fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{title}</h4>
+        <div style={{ fontSize: '1.4rem', fontWeight: 800, color: isSuccess ? '#10b981' : 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textShadow: '0 2px 4px rgba(255,255,255,0.5)' }}>
           {fc(amount)}
         </div>
-        <p style={{ margin: '2px 0 0 0', color: 'var(--text-secondary)', fontSize: '0.78rem' }}>{subtitle}</p>
+        <p style={{ margin: '2px 0 0 0', color: 'var(--text-muted)', fontSize: '0.78rem' }}>{subtitle}</p>
       </div>
     </div>
   );

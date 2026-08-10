@@ -34,29 +34,35 @@ export function Sidebar() {
   ];
 
   const W = isCollapsed ? 72 : 260;
-
   return (
     <>
       {/* Sidebar fijo en pantalla */}
-      <aside style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        width: `${W}px`,
-        height: '100vh',
-        background: 'var(--surface-color)',
-        boxShadow: 'var(--neo-shadow-flat)',
-        display: 'flex',
-        flexDirection: 'column',
-        padding: '1.5rem 0.75rem',
-        overflowY: 'auto',
-        overflowX: 'hidden',
-        transition: 'width 0.3s cubic-bezier(0.4,0,0.2,1)',
-        zIndex: 200
-      }}>
+      <aside 
+        className="glass-panel"
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: `${W}px`,
+          height: '100vh',
+          background: 'rgba(255, 255, 255, 0.58)',
+          backdropFilter: 'saturate(200%) blur(28px)',
+          WebkitBackdropFilter: 'saturate(200%) blur(28px)',
+          borderRight: '1.5px solid rgba(255, 255, 255, 0.85)',
+          boxShadow: '8px 0 36px rgba(15, 39, 71, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.9)',
+          display: 'flex',
+          flexDirection: 'column',
+          padding: '1.5rem 0.75rem',
+          overflowY: 'auto',
+          overflowX: 'hidden',
+          transition: 'width 0.35s cubic-bezier(0.34, 1.56, 0.64, 1)',
+          zIndex: 200,
+          borderRadius: 0
+        }}
+      >
 
         {/* Logo */}
-        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1.5rem', paddingBottom: '1rem', borderBottom: '1px solid rgba(26,79,153,0.1)' }}>
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1.5rem', paddingBottom: '1rem', borderBottom: '1px solid rgba(255,255,255,0.7)' }}>
           <img
             src="/logo.png"
             alt="Kekala"
@@ -64,7 +70,8 @@ export function Sidebar() {
               height: isCollapsed ? '36px' : '110px',
               maxWidth: '100%',
               objectFit: 'contain',
-              transition: 'height 0.3s cubic-bezier(0.4,0,0.2,1)'
+              transition: 'height 0.35s cubic-bezier(0.34, 1.56, 0.64, 1)',
+              filter: 'drop-shadow(0 4px 12px rgba(26, 79, 153, 0.15))'
             }}
           />
         </div>
@@ -72,7 +79,7 @@ export function Sidebar() {
         {/* Branch selector */}
         {!isCollapsed ? (
           <div style={{ marginBottom: '1.5rem' }}>
-            <p style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '8px', letterSpacing: '0.05em' }}>
+            <p style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '8px', letterSpacing: '0.05em' }}>
               Sucursal Activa
             </p>
             <NeoSelect
@@ -88,7 +95,7 @@ export function Sidebar() {
           </div>
         ) : (
           <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1.5rem' }}>
-            <div title={activeBranch?.name} style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'var(--surface-color)', boxShadow: 'var(--neo-shadow-inset)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--primary-color)' }}>
+            <div title={activeBranch?.name} className="glass-icon-circle" style={{ width: '40px', height: '40px', borderRadius: '12px', color: '#1a4f99' }}>
               <MapPin size={18} />
             </div>
           </div>
@@ -116,9 +123,10 @@ export function Sidebar() {
         </nav>
       </aside>
 
-      {/* Botón de colapso flotante */}
+      {/* Botón de colapso flotante estilo cristal */}
       <button
         onClick={() => setIsCollapsed(!isCollapsed)}
+        className="glass-btn"
         style={{
           position: 'fixed',
           top: '24px',
@@ -126,16 +134,11 @@ export function Sidebar() {
           zIndex: 300,
           width: '28px',
           height: '28px',
+          padding: 0,
           borderRadius: '50%',
-          border: 'none',
-          background: 'var(--surface-color)',
-          boxShadow: 'var(--neo-shadow-flat)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          cursor: 'pointer',
-          color: 'var(--color-secondary)',
-          transition: 'left 0.3s cubic-bezier(0.4,0,0.2,1)'
+          color: '#1a4f99',
+          transition: 'left 0.35s cubic-bezier(0.34, 1.56, 0.64, 1)',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.1), inset 0 1px 0 rgba(255,255,255,1)'
         }}
         title={isCollapsed ? 'Expandir' : 'Contraer'}
       >
@@ -143,7 +146,7 @@ export function Sidebar() {
       </button>
 
       {/* Spacer para que el main-content no quede debajo del sidebar */}
-      <div style={{ width: `${W}px`, flexShrink: 0, transition: 'width 0.3s cubic-bezier(0.4,0,0.2,1)' }} />
+      <div style={{ width: `${W}px`, flexShrink: 0, transition: 'width 0.35s cubic-bezier(0.34, 1.56, 0.64, 1)' }} />
     </>
   );
 }

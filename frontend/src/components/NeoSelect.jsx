@@ -29,10 +29,10 @@ export const NeoSelect = ({ name, value, onChange, options, placeholder, require
   });
 
   return (
-    <div ref={wrapperRef} style={{ position: 'relative', width: '100%' }}>
+    <div ref={wrapperRef} style={{ position: 'relative', width: '100%', zIndex: open ? 9999 : 1 }}>
       <div 
-        className="neo-surface" 
-        style={{ padding: '4px 16px', borderRadius: '12px', display: 'flex', alignItems: 'center', cursor: 'text' }}
+        className="glass-panel" 
+        style={{ padding: '4px 16px', borderRadius: '14px', display: 'flex', alignItems: 'center', cursor: 'text', background: 'rgba(255, 255, 255, 0.48)' }}
         onClick={() => setOpen(true)}
       >
         <input 
@@ -47,13 +47,32 @@ export const NeoSelect = ({ name, value, onChange, options, placeholder, require
           onFocus={() => setOpen(true)}
           placeholder={placeholder}
           required={required}
-          style={{ border: 'none', background: 'transparent', outline: 'none', width: '100%', color: 'var(--text-primary)', fontWeight: 500, fontSize: '0.95rem', height: '36px' }}
+          style={{ border: 'none', background: 'transparent', outline: 'none', width: '100%', color: 'var(--text-primary)', fontWeight: 600, fontSize: '0.95rem', height: '36px' }}
         />
         <ChevronDown size={18} style={{ color: 'var(--text-muted)', cursor: 'pointer', transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} onClick={(e) => { e.stopPropagation(); setOpen(!open); }} />
       </div>
       
       {open && (
-         <div className="neo-surface" style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 9999, maxHeight: '200px', overflowY: 'auto', marginTop: '12px', padding: '8px', borderRadius: '12px' }}>
+         <div 
+           className="glass-panel" 
+           style={{ 
+             position: 'absolute', 
+             top: '100%', 
+             left: 0, 
+             right: 0, 
+             zIndex: 9999, 
+             maxHeight: '220px', 
+             overflowY: 'auto', 
+             marginTop: '8px', 
+             padding: '8px', 
+             borderRadius: '16px',
+             background: 'rgba(255, 255, 255, 0.88)',
+             backdropFilter: 'saturate(200%) blur(32px)',
+             WebkitBackdropFilter: 'saturate(200%) blur(32px)',
+             border: '1.5px solid rgba(255, 255, 255, 0.95)',
+             boxShadow: '0 16px 40px rgba(15, 39, 71, 0.15), inset 0 1px 0 rgba(255, 255, 255, 1)'
+           }}
+         >
             {filtered.map(opt => {
                const lbl = isObjectOptions ? opt.label : opt;
                const val = isObjectOptions ? opt.value : opt;
@@ -61,8 +80,18 @@ export const NeoSelect = ({ name, value, onChange, options, placeholder, require
                return (
                  <div 
                    key={val}
-                   style={{ padding: '10px 16px', cursor: 'pointer', borderRadius: '8px', fontWeight: isSelected ? 600 : 400, color: isSelected ? 'var(--text-on-brand)' : 'var(--text-secondary)', background: isSelected ? 'var(--accent-gradient)' : 'transparent', marginBottom: '4px' }}
-                   onMouseEnter={(e) => { if(!isSelected) e.currentTarget.style.background = 'rgba(0,0,0,0.05)' }}
+                   style={{ 
+                     padding: '10px 16px', 
+                     cursor: 'pointer', 
+                     borderRadius: '10px', 
+                     fontWeight: isSelected ? 700 : 500, 
+                     color: isSelected ? 'var(--text-on-brand)' : 'var(--text-primary)', 
+                     background: isSelected ? 'var(--accent-gradient)' : 'transparent', 
+                     boxShadow: isSelected ? 'var(--accent-glow)' : 'none',
+                     marginBottom: '4px',
+                     transition: 'all 0.15s ease'
+                   }}
+                   onMouseEnter={(e) => { if(!isSelected) e.currentTarget.style.background = 'rgba(26, 79, 153, 0.08)' }}
                    onMouseLeave={(e) => { if(!isSelected) e.currentTarget.style.background = 'transparent' }}
                    onClick={() => {
                       onChange({ target: { name, value: val, label: lbl }});
@@ -77,7 +106,7 @@ export const NeoSelect = ({ name, value, onChange, options, placeholder, require
             
             {!isObjectOptions && filter && !filtered.find(o => (isObjectOptions ? o.label : o) === filter) && (
                <div 
-                 style={{ padding: '10px 16px', cursor: 'pointer', color: 'var(--status-ok)', fontWeight: 600, borderTop: filtered.length > 0 ? '1px solid rgba(0,0,0,0.05)' : 'none', marginTop: filtered.length > 0 ? '4px' : '0' }}
+                 style={{ padding: '10px 16px', cursor: 'pointer', color: 'var(--status-ok)', fontWeight: 700, borderTop: filtered.length > 0 ? '1px solid rgba(255,255,255,0.6)' : 'none', marginTop: filtered.length > 0 ? '4px' : '0' }}
                  onClick={() => {
                     onChange({ target: { name, value: filter }});
                     setFilter('');

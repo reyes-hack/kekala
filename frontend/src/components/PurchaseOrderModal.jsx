@@ -282,10 +282,10 @@ export function PurchaseOrderModal({ onClose, viewOrder }) {
 
   return (
     <div className="modal-overlay">
-      <div className="modal-content" style={{ width: '90%', maxWidth: '1000px', height: '90vh', display: 'flex', flexDirection: 'column' }}>
+      <div className="modal-content" style={{ width: '92%', maxWidth: '1050px', height: '90vh', display: 'flex', flexDirection: 'column', background: 'rgba(255, 255, 255, 0.88)', backdropFilter: 'saturate(200%) blur(32px)', border: '1.5px solid rgba(255, 255, 255, 0.95)', borderRadius: '28px', boxShadow: '0 30px 70px rgba(15, 39, 71, 0.25)' }}>
         <header className="modal-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <h2>Generar Orden de Compra</h2>
+            <h2 style={{ fontSize: '1.4rem', fontWeight: 800 }}>Generar Orden de Compra</h2>
             <NeoSelect 
               name="branchSelect"
               value={selectedBranchId || ''} 
@@ -295,30 +295,30 @@ export function PurchaseOrderModal({ onClose, viewOrder }) {
               style={{ width: '250px' }}
             />
           </div>
-          <button onClick={onClose} className="modal-close"><X size={24} /></button>
+          <button onClick={onClose} className="modal-close"><X size={20} /></button>
         </header>
 
         <div className="modal-body" style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '20px' }}>
           {loading ? (
-            <div style={{ textAlign: 'center', padding: '40px' }}>Cargando inventario...</div>
+            <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)', fontWeight: 600 }}>Cargando inventario...</div>
           ) : (
             <>
               {/* Controles Superiores */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--surface-color)', padding: '16px', borderRadius: '12px', boxShadow: 'var(--neo-shadow)' }}>
+              <div className="glass-panel" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px', borderRadius: '20px' }}>
                 {viewOrder ? (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)', fontWeight: 600 }}>
                     <FileText size={20} />
                     <span>Visualizando Orden del Historial</span>
                   </div>
                 ) : (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px', background: 'var(--background-color)', padding: '12px 20px', borderRadius: '12px' }}>
-                    <Calculator style={{ color: 'var(--primary-color)' }} />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px', background: 'rgba(255, 255, 255, 0.5)', padding: '10px 18px', borderRadius: '16px', border: '1px solid rgba(255, 255, 255, 0.7)' }}>
+                    <Calculator style={{ color: '#1a4f99' }} />
                     <div>
-                      <label style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600, display: 'block', marginBottom: '4px' }}>Modo de Cálculo Automático:</label>
+                      <label style={{ fontSize: '0.82rem', color: 'var(--text-muted)', fontWeight: 700, display: 'block', marginBottom: '4px' }}>Modo de Cálculo Automático:</label>
                       <div style={{ display: 'flex', gap: '8px' }}>
-                        <button onClick={() => calculatePO('limpia')} className={`neo-btn ${mode === 'limpia' ? 'active' : ''}`} style={{ padding: '6px 12px', fontSize: '0.9rem', background: mode === 'limpia' ? 'var(--primary-color)' : '', color: mode === 'limpia' ? 'white' : 'var(--text-primary)' }}>Limpia (0)</button>
-                        <button onClick={() => calculatePO('minimo')} className={`neo-btn ${mode === 'minimo' ? 'active' : ''}`} style={{ padding: '6px 12px', fontSize: '0.9rem', background: mode === 'minimo' ? 'var(--primary-color)' : '', color: mode === 'minimo' ? 'white' : 'var(--text-primary)' }}>Stock Mínimo</button>
-                        <button onClick={() => calculatePO('sugerido')} className={`neo-btn ${mode === 'sugerido' ? 'active' : ''}`} style={{ padding: '6px 12px', fontSize: '0.9rem', background: mode === 'sugerido' ? 'var(--primary-color)' : '', color: mode === 'sugerido' ? 'white' : 'var(--text-primary)' }}>Sugerido (+15%)</button>
+                        <button onClick={() => calculatePO('limpia')} className={`glass-btn ${mode === 'limpia' ? 'neo-btn-primary' : ''}`} style={{ padding: '6px 14px', fontSize: '0.85rem' }}>Limpia (0)</button>
+                        <button onClick={() => calculatePO('minimo')} className={`glass-btn ${mode === 'minimo' ? 'neo-btn-primary' : ''}`} style={{ padding: '6px 14px', fontSize: '0.85rem' }}>Stock Mínimo</button>
+                        <button onClick={() => calculatePO('sugerido')} className={`glass-btn ${mode === 'sugerido' ? 'neo-btn-primary' : ''}`} style={{ padding: '6px 14px', fontSize: '0.85rem' }}>Sugerido (+15%)</button>
                       </div>
                     </div>
                   </div>
@@ -327,7 +327,7 @@ export function PurchaseOrderModal({ onClose, viewOrder }) {
                 <div style={{ display: 'flex', gap: '12px' }}>
                   <button
                     onClick={() => exportToPDF('po-export-area', `Orden_Compra_${currentBranch?.name || 'Sucursal'}.pdf`)}
-                    className="neo-btn"
+                    className="glass-btn"
                     style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
                     title="Exportar a PDF"
                   >
@@ -335,8 +335,8 @@ export function PurchaseOrderModal({ onClose, viewOrder }) {
                   </button>
                   <button
                     onClick={handleExportExcel}
-                    className="neo-btn"
-                    style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#16a34a' }}
+                    className="glass-btn"
+                    style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#10b981' }}
                     title="Descargar versión Excel"
                   >
                     <FileSpreadsheet size={18} /> EXCEL
