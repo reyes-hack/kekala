@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import * as dotenv from 'dotenv';
 import path from 'path';
+import WebSocket from 'ws';
 
 // Load variables from backend .env
 dotenv.config({ path: path.resolve(__dirname, '../../../.env') }); // Esto busca en backend/.env
@@ -12,4 +13,11 @@ if (!supabaseUrl || !supabaseKey) {
   console.warn('⚠️ No se encontraron las credenciales de Supabase en el archivo .env');
 }
 
-export const supabase = createClient(supabaseUrl, supabaseKey);
+export const supabase = createClient(supabaseUrl, supabaseKey, {
+  auth: {
+    persistSession: false
+  },
+  global: {
+    WebSocket: WebSocket as any
+  }
+});
