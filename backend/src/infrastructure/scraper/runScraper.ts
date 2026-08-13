@@ -21,25 +21,27 @@ const generateProductCode = (productName: string) => {
     return productName.toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^A-Z0-9]/g, '_').replace(/_+/g, '_').replace(/_$/, '');
 };
 
-async function run() {
+export async function runFoodbotScraper(dateInputArg?: string) {
   console.log('--- Kekala Foodbot Scraper ---');
-  let dateInput = process.argv[2];
+  let dateInput = dateInputArg;
   if (!dateInput) {
-      dateInput = await askQuestion('Ingrese el día que desea extraer (ej. 28-06-2026): ');
+      // Default to today in YYYY-MM-DD if not provided
+      const now = new Date();
+      dateInput = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
   }
   
-  if (!dateInput.match(/^\d{2}-\d{2}-\d{4}$/)) {
-    console.error('Formato inválido. Debe ser DD-MM-YYYY.');
-    process.exit(1);
+  if (!dateInput.match(/^\d{4}-\d{2}-\d{2}$/)) {
+    console.error('Formato inválido. Debe ser YYYY-MM-DD.');
+    throw new Error('Formato inválido. Debe ser YYYY-MM-DD.');
   }
 
-  const [day, month, year] = dateInput.split('-');
+  const [year, month, day] = dateInput.split('-');
   const targetDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
   const today = new Date();
   
   if (targetDate > today) {
     console.error('Error: El día solicitado es en el futuro. Escoja un día válido.');
-    process.exit(1);
+    throw new Error('Fecha en el futuro');
   }
 
   // Format date as YYYY-MM-DD for ISO / Database compatibility
@@ -332,5 +334,3 @@ function parseTextContent(text: string, sucursalName: string) {
 
   return data;
 }
-
-run().catch(console.error);
