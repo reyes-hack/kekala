@@ -1,5 +1,6 @@
 import { chromium } from 'playwright';
 import fs from 'fs';
+import path from 'path';
 import * as readline from 'readline';
 
 // Helpers for mappings
@@ -161,7 +162,7 @@ export async function runFoodbotScraper(dateInputArg?: string) {
         
         const textContent = await page.evaluate(() => document.body.innerText);
         
-        const debugPath = `C:\\Users\\toro5\\Documents\\AZSA\\KEKALA\\backend\\src\\infrastructure\\scraper\\debug-${sucursal.replace(/\s/g, '_')}.txt`;
+        const debugPath = path.join(__dirname, `debug-${sucursal.replace(/\s/g, '_')}.txt`);
         fs.writeFileSync(debugPath, textContent);
         
         const parsed = parseTextContent(textContent, sucursal);
@@ -180,9 +181,11 @@ export async function runFoodbotScraper(dateInputArg?: string) {
 
     console.log('\n[4/4] Extracción completada exitosamente.');
     
-    const outputPath = 'C:\\Users\\toro5\\Documents\\AZSA\\KEKALA\\backend\\src\\infrastructure\\scraper\\ventas-output.json';
+    const outputPath = path.join(__dirname, 'ventas-output.json');
     fs.writeFileSync(outputPath, JSON.stringify(finalData, null, 2));
     console.log(`\nDatos guardados en: ${outputPath}\n`);
+
+    return finalData;
     
   } catch(error) {
     console.error('Error durante la extracción:', error);
