@@ -1,20 +1,22 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { Edit3, Check, X, PackageOpen, Wallet, FileText } from 'lucide-react';
 import { PurchaseOrderModal } from '../components/PurchaseOrderModal';
 import { PurchaseOrderHistory } from '../components/PurchaseOrderHistory';
 import { ExpensesList } from '../components/ExpensesList';
+import { AuthContext } from '../components/ProtectedRoute';
 
 /* ════════════════════════════════════════════
    COMPRAS Y GASTOS - LISTA MAESTRA (RECUADRO AZUL)
    ════════════════════════════════════════════ */
 
 export function Purchases() {
+  const { isAdmin } = useContext(AuthContext);
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState(null);
   const [showPOModal, setShowPOModal] = useState(false);
-  const [activeTab, setActiveTab] = useState('lista'); // 'lista' o 'historial'
+  const [activeTab, setActiveTab] = useState(isAdmin ? 'lista' : 'historial'); // 'lista' o 'historial'
   
   // Estado temporal para la edición
   const [tempCost, setTempCost] = useState('');
@@ -127,27 +129,31 @@ export function Purchases() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '40px' }}>
         <div>
           <h1 className="neo-title">Compras y Gastos</h1>
-          <p style={{ color: 'var(--text-muted)' }}>Gestión de precios, costos por caja y órdenes de compra.</p>
+          <p style={{ color: 'var(--text-muted)' }}>Gestión de órdenes de compra y reporte de gastos diarios.</p>
         </div>
-        <button 
-          className="neo-btn neo-btn-primary" 
-          onClick={() => setShowPOModal(true)}
-          style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
-        >
-          <FileText size={20} />
-          Generar Orden de Compra
-        </button>
+        {isAdmin && (
+          <button 
+            className="neo-btn neo-btn-primary" 
+            onClick={() => setShowPOModal(true)}
+            style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+          >
+            <FileText size={20} />
+            Generar Orden de Compra
+          </button>
+        )}
       </div>
 
       {/* Navegación por pestañas */}
       <div style={{ display: 'flex', gap: '20px', marginBottom: '30px' }}>
-        <button 
-          className={`neo-btn ${activeTab === 'lista' ? 'neo-btn-primary' : ''}`}
-          onClick={() => setActiveTab('lista')}
-          style={{ flex: 1, padding: '16px' }}
-        >
-          Lista Maestra de Precios
-        </button>
+        {isAdmin && (
+          <button 
+            className={`neo-btn ${activeTab === 'lista' ? 'neo-btn-primary' : ''}`}
+            onClick={() => setActiveTab('lista')}
+            style={{ flex: 1, padding: '16px' }}
+          >
+            Lista Maestra de Precios
+          </button>
+        )}
         <button 
           className={`neo-btn ${activeTab === 'historial' ? 'neo-btn-primary' : ''}`}
           onClick={() => setActiveTab('historial')}

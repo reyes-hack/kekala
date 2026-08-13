@@ -1,10 +1,12 @@
-import React from 'react';
+import React, { useContext } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { NotificationsBell } from './NotificationsBell';
 import { Settings } from 'lucide-react';
+import { AuthContext } from './ProtectedRoute';
+import { CashierLayout } from './CashierLayout';
 
-export function MainLayout() {
+function AdminLayout() {
   const navigate = useNavigate();
 
   return (
@@ -38,4 +40,9 @@ export function MainLayout() {
       </main>
     </div>
   );
+}
+
+export function MainLayout() {
+  const { isAdmin } = useContext(AuthContext);
+  return isAdmin ? <AdminLayout /> : <CashierLayout />;
 }

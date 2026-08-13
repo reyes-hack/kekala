@@ -2,6 +2,13 @@ import React, { useEffect, useState } from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 
+export const AuthContext = React.createContext({
+  session: null,
+  roles: [],
+  isAdmin: false,
+  isCashier: false
+});
+
 export function ProtectedRoute() {
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -70,5 +77,19 @@ export function ProtectedRoute() {
     return <Navigate to="/login-admin" state={{ from: location, unauthorized: !hasProfile && session }} replace />;
   }
 
-  return <Outlet />;
+  const roles = session?.user?.app_metadata?.roles || [];
+  const isAdmin = roles.includes('ADMIN');
+  const isCashier = roles.includes('CASHIER');
+
+  // Hard block for Cashiers trying to access unauthorized routes (like /ventas, /configuracion)
+  const allowedCashierPaths = ['/', '/mermas', '/gastos', '/auditoria', '/cortes'];
+  if (!isAdmin && isCashier && !allowedCashierPaths.includes(location.pathname)) {
+    return <Navigate to="/" replace />;
+  }
+
+  return (
+    <AuthContext.Provider value={{ session, roles, isAdmin, isCashier }}>
+      <Outlet />
+    </AuthContext.Provider>
+  );
 }

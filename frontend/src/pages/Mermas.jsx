@@ -153,6 +153,10 @@ export function Mermas() {
        alert("Por favor llena todos los campos obligatorios.");
        return;
     }
+
+    if (!window.confirm(`¿Estás seguro de registrar esta merma? Se descontarán ${formData.quantity} unidades del inventario de esta sucursal automáticamente.`)) {
+      return;
+    }
     
     setSaving(true);
     try {
@@ -231,7 +235,7 @@ export function Mermas() {
         notes: ''
       });
       setPhotoFile(null);
-      loadData();
+      loadMermas();
     } catch (error) {
       console.error('Error registrando merma:', error);
       alert('Error registrando merma: ' + error.message);

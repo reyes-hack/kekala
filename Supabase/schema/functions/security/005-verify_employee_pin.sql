@@ -1,6 +1,7 @@
 BEGIN;
 
-CREATE EXTENSION IF NOT EXISTS pgcrypto;
+-- Aseguramos que la extensión exista (Supabase la guarda en el esquema extensions)
+CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;
 
 CREATE OR REPLACE FUNCTION public.verify_employee_pin(
 
@@ -16,7 +17,8 @@ LANGUAGE plpgsql
 
 SECURITY DEFINER
 
-SET search_path = public
+-- Se debe incluir 'extensions' en el search_path para que la función crypt() de pgcrypto sea encontrada
+SET search_path = public, extensions
 
 AS
 $$
@@ -51,7 +53,7 @@ END;
 $$;
 
 COMMENT ON FUNCTION public.verify_employee_pin IS
-'Verifica el PIN hasheado de un empleado y actualiza la fecha del último acceso exitoso.';
+'Verifica el PIN hasheado de un empleado y actualiza la fecha del último acceso exitoso. Incluye el esquema extensions para utilizar pgcrypto.';
 
 REVOKE ALL ON FUNCTION public.verify_employee_pin(UUID, TEXT) FROM PUBLIC;
 

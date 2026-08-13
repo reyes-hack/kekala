@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useContext } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { useBranchStore } from '../store/useBranchStore';
 import { Download, FileText, TrendingUp, AlertTriangle, Activity, ChevronDown, ChevronRight, DollarSign, Check } from 'lucide-react';
@@ -8,6 +8,8 @@ import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { AuthContext } from '../components/ProtectedRoute';
+import { CashierDashboard } from './CashierDashboard';
 
 const COLORS = ['#1a4f99', '#ef4444', '#f59e0b', '#10b981'];
 
@@ -53,12 +55,17 @@ function mergeReports(reports) {
 // El dashboard debe leer exclusivamente del RPC real get_income_statement.
 
 export function Dashboard() {
+  const { isAdmin } = useContext(AuthContext);
   const { branches, loading: branchesLoading } = useBranchStore();
   const [loading, setLoading] = useState(false);
   const [reportData, setReportData] = useState(null);
   const [selectedBranchIds, setSelectedBranchIds] = useState([]);
   const [branchDropOpen, setBranchDropOpen] = useState(false);
   const branchDropRef = useRef(null);
+
+  if (!isAdmin) {
+    return <CashierDashboard />;
+  }
 
   const MONTHS = [
     { value: '01', label: 'Enero' }, { value: '02', label: 'Febrero' },

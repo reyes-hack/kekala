@@ -129,12 +129,9 @@ export class InventorySyncService {
                     throw new Error(`Error al insertar movimientos: ${insertError.message}`);
                 }
                 
-                // NOTA: Con el trigger que creamos anteriormente (o la lógica de frontend que vimos), 
-                // el branch_inventory debería actualizarse si hay un trigger. Si NO hay trigger de BDD,
-                // necesitamos actualizar branch_inventory manualmente aquí sumando las cantidades.
-                // Asumimos por ahora que actualizaremos manualmente para ser seguros (como en el frontend) o que el trigger lo hace.
-                // Angel crearía un trigger, pero hagamos un upsert seguro por si acaso.
-                await this.updateBranchInventory(inventoryMovements);
+                // NOTA: La base de datos tiene un TRIGGER (trg_inventory_movements_after_insert)
+                // que llama a sync_branch_inventory() automáticamente.
+                // Ya NO hacemos updateBranchInventory manualmente aquí para evitar descontar DOBLE.
 
                 console.log(`[InventorySync] Exito: ${inventoryMovements.length} movimientos de inventario registrados.`);
                 return { success: true, message: `Sincronizados ${inventoryMovements.length} movimientos de inventario.`, results: syncResults };

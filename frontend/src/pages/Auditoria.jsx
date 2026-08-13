@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { useBranchStore } from '../store/useBranchStore';
 import { ClipboardCheck, Search, Camera, Check, X, CheckCircle2, Clock, ShieldAlert, Filter, Send } from 'lucide-react';
@@ -6,13 +6,16 @@ import { NeoSelect } from '../components/NeoSelect';
 import { useNeoFilters } from '../hooks/useNeoFilters';
 import { NeoAdvancedFilter } from '../components/NeoAdvancedFilter';
 import { NeoPagination } from '../components/NeoPagination';
+import { AuthContext } from '../components/ProtectedRoute';
+
 export function Auditoria() {
+  const { isAdmin } = useContext(AuthContext);
   const { activeBranch } = useBranchStore();
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState(null);
   
   // Modes: 'SELECTION', 'EMPLOYEE_COUNT', 'ADMIN_REVIEW'
-  const [mode, setMode] = useState('SELECTION'); 
+  const [mode, setMode] = useState(isAdmin ? 'SELECTION' : 'EMPLOYEE_COUNT'); 
   
   // -- Session State --
   const [currentSession, setCurrentSession] = useState(null);
@@ -29,6 +32,15 @@ export function Auditoria() {
       loadInitialData();
     }
   }, [activeBranch]);
+
+  useEffect(() => {
+    if (activeBranch && !isAdmin && currentUser) {
+      // Auto-iniciar si es empleado y ya cargó el usuario
+      if (mode === 'EMPLOYEE_COUNT' && !currentSession) {
+        startEmployeeCount();
+      }
+    }
+  }, [activeBranch, isAdmin, currentUser]);
 
   const loadInitialData = async () => {
     setLoading(true);
@@ -48,40 +60,38 @@ export function Auditoria() {
   const startEmployeeCount = async () => {
     setLoading(true);
     try {
-      // 1. Create Session
-      const { data: sessionData, error: sessionErr } = await supabase
-        .from('audit_sessions')
-        .insert({
-          organization_id: activeBranch.organization_id,
+      // 1. Create Session using Edge Function to bypass RLS complications
+      const newSessionId = crypto.randomUUID();
+      const { data: sessionData, error: sessionErr } = await supabase.functions.invoke('start_audit_session', {
+        body: {
+          id: newSessionId,
           branch_id: activeBranch.id,
-          started_by: currentUser?.id,
-          status: 'IN_PROGRESS'
-        })
-        .select()
-        .single();
+          started_by: currentUser?.id
+        }
+      });
 
       if (sessionErr) throw sessionErr;
-      setCurrentSession(sessionData);
+      
+      const activeSession = sessionData?.session;
+      if (!activeSession) throw new Error("No se pudo obtener la sesión activa");
+      
+      setCurrentSession({ id: activeSession.id, branch_id: activeBranch.id });
 
-      // 2. Fetch all active products in branch inventory
-      const { data: invData, error: invErr } = await supabase
-        .from('branch_inventory')
-        .select(`
-          product_id, current_stock,
-          product:products(id, name, is_active)
-        `)
-        .eq('branch_id', activeBranch.id);
-
-      if (invErr) throw invErr;
+      // 2. Usamos los productos que la propia Edge Function nos devolvió (bypasseando RLS)
+      const activeProds = sessionData?.products || [];
 
       // In a strict environment, expected_stock would be inserted by a server function so the employee client NEVER receives it.
       // For this prototype, we'll map it to state but intentionally NOT display it.
-      const validProds = invData.filter(i => i.product && i.product.is_active);
-      setProducts(validProds);
+      const mappedProds = activeProds.map(p => ({
+        product_id: p.id,
+        current_stock: null,
+        product: p
+      }));
+      setProducts(mappedProds);
       
       const initialCounts = {};
-      validProds.forEach(p => {
-        initialCounts[p.product_id] = { count: '', photoUrl: null, photoFile: null, expected: p.current_stock };
+      mappedProds.forEach(p => {
+        initialCounts[p.product_id] = { count: '', photoUrl: null, photoFile: null, expected: null };
       });
       setCountedProducts(initialCounts);
       setMode('EMPLOYEE_COUNT');
@@ -151,8 +161,13 @@ export function Auditoria() {
       await supabase.from('audit_sessions').update({ status: 'COMPLETED', completed_at: new Date().toISOString() }).eq('id', currentSession.id);
       
       alert("¡Conteo enviado con éxito! Buen trabajo.");
-      setMode('SELECTION');
-      setCurrentSession(null);
+      if (isAdmin) {
+        setMode('SELECTION');
+        setCurrentSession(null);
+      } else {
+        // Redirigir al inicio para evitar que se queden en un limbo sin acceso a SELECTION
+        window.location.href = '/';
+      }
     } catch (err) {
       console.error(err);
       alert("Error enviando auditoría.");
@@ -339,15 +354,17 @@ export function Auditoria() {
 
       {/* -------------------- MODO EMPLEADO (CONTEO CIEGO) -------------------- */}
       {!loading && mode === 'EMPLOYEE_COUNT' && (
-        <div className="neo-surface" style={{ padding: '0', borderRadius: '16px', overflow: 'hidden' }}>
-          <div style={{ background: '#2563eb', padding: '20px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: 'white' }}>
+        <div className="neo-surface" style={{ padding: '0', borderRadius: '24px', overflow: 'hidden', background: 'rgba(255, 255, 255, 0.7)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', border: '1px solid rgba(255, 255, 255, 0.4)', boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.1)' }}>
+          <div style={{ background: 'linear-gradient(135deg, rgba(37, 99, 235, 0.15) 0%, rgba(37, 99, 235, 0.05) 100%)', borderBottom: '1px solid rgba(37, 99, 235, 0.1)', padding: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
-              <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 600 }}>Registro Físico en Mostrador</h2>
-              <p style={{ margin: '4px 0 0 0', fontSize: '0.85rem', opacity: 0.8 }}>Cuenta pieza por pieza. No intentes adivinar.</p>
+              <h2 style={{ margin: 0, fontSize: '1.4rem', fontWeight: 800, color: 'var(--primary-color)', textShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>Registro Físico en Mostrador</h2>
+              <p style={{ margin: '4px 0 0 0', fontSize: '0.9rem', color: 'var(--text-muted)' }}>Cuenta pieza por pieza. No intentes adivinar.</p>
             </div>
-            <button onClick={() => setMode('SELECTION')} style={{ background: 'rgba(255,255,255,0.2)', border: 'none', color: 'white', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }}>
-              Cancelar
-            </button>
+            {isAdmin && (
+              <button onClick={() => setMode('SELECTION')} className="neo-btn" style={{ background: 'transparent', color: 'var(--text-primary)', border: '1px solid rgba(0,0,0,0.1)' }}>
+                Cancelar
+              </button>
+            )}
           </div>
           
           <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -359,22 +376,42 @@ export function Auditoria() {
                 </div>
                 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                  <div style={{ position: 'relative', width: '150px' }}>
-                    <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', background: 'var(--surface-color)', border: '1px dashed var(--text-muted)', borderRadius: '8px' }}>
-                      <Camera size={20} style={{ color: countedProducts[p.product_id].photoFile ? '#10b981' : 'var(--text-muted)' }} />
+                  <div style={{ position: 'relative', width: '150px', height: '48px' }}>
+                    <div 
+                      onClick={() => document.getElementById(`camera-input-${p.product_id}`).click()}
+                      style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', background: 'var(--surface-color)', border: '1px dashed var(--text-muted)', borderRadius: '8px', overflow: 'hidden' }}
+                    >
+                      {countedProducts[p.product_id].photoFile ? (
+                        <img 
+                          src={URL.createObjectURL(countedProducts[p.product_id].photoFile)} 
+                          alt="Evidencia" 
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        />
+                      ) : (
+                        <div style={{ display: 'flex', gap: '6px', alignItems: 'center', color: 'var(--text-muted)' }}>
+                          <Camera size={20} />
+                          <span style={{ fontSize: '0.8rem', fontWeight: 600 }}>Tomar Foto</span>
+                        </div>
+                      )}
                       <input 
+                        id={`camera-input-${p.product_id}`}
                         type="file" 
                         accept="image/*"
                         capture="environment"
-                        onChange={(e) => handlePhotoSelect(p.product_id, e.target.files[0])}
-                        style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', opacity: 0, cursor: 'pointer' }}
-                        title="Subir evidencia fotográfica"
+                        onChange={(e) => {
+                           if(e.target.files && e.target.files.length > 0) {
+                             handlePhotoSelect(p.product_id, e.target.files[0])
+                           }
+                        }}
+                        style={{ display: 'none' }}
                       />
                     </div>
                   </div>
 
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <label style={{ fontSize: '0.9rem', color: 'var(--text-muted)', fontWeight: 600 }}>CANTIDAD:</label>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '4px' }}>
+                    <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 600 }}>
+                      CANTIDAD {p.product.unit ? (Array.isArray(p.product.unit) ? `(${p.product.unit[0]?.name?.toUpperCase()})` : `(${p.product.unit.name?.toUpperCase()})`) : ''}:
+                    </label>
                     <input 
                       type="number"
                       step="any" 

@@ -10,20 +10,33 @@ export const useBranchStore = create((set, get) => ({
   fetchBranches: async () => {
     set({ loading: true, error: null });
     try {
-      const { data, error } = await supabase
-        .from('branches')
-        .select('id, code, name, organization_id')
-        .eq('is_active', true)
-        .order('name');
-
+      // Securely fetch branches using Edge Function (bypassing RLS for anonymous users)
+      const { data, error } = await supabase.functions.invoke('get_login_data');
       if (error) throw error;
       
+      const branchesData = data?.branches || [];
       const currentActive = get().activeBranch;
       
+      // Intentar obtener la sesión actual para ver si es un cajero
+      const { data: sessionData } = await supabase.auth.getSession();
+      const user = sessionData?.session?.user;
+      const roles = user?.app_metadata?.roles || [];
+      const userBranchId = user?.app_metadata?.branch_id;
+      
+      let defaultBranch = branchesData?.[0] || null;
+      let finalActiveBranch = currentActive ? currentActive : defaultBranch;
+      
+      // Si es empleado/cajero y tiene una sucursal asignada, forzar estrictamente esa sucursal
+      if (roles.includes('CASHIER') && userBranchId) {
+        const cashierBranch = branchesData.find(b => b.id === userBranchId);
+        if (cashierBranch) {
+          finalActiveBranch = cashierBranch;
+        }
+      }
+      
       set({ 
-        branches: data || [], 
-        // Si no hay sucursal activa, autoselecciona la primera
-        activeBranch: currentActive ? currentActive : (data?.[0] || null),
+        branches: branchesData, 
+        activeBranch: finalActiveBranch,
         loading: false 
       });
     } catch (error) {

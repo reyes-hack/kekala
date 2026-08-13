@@ -14,7 +14,14 @@ export function LoginNIP() {
   const [errorMsg, setErrorMsg] = useState('');
   const navigate = useNavigate();
 
-  // Load branches (if not loaded) and employees for selected branch
+  // Fetch branches on mount if they are not already loaded
+  useEffect(() => {
+    if (branches.length === 0) {
+      useBranchStore.getState().fetchBranches();
+    }
+  }, [branches.length]);
+
+  // Load employees for selected branch
   useEffect(() => {
     if (selectedBranchId) {
       loadEmployees(selectedBranchId);
@@ -25,14 +32,14 @@ export function LoginNIP() {
 
   const loadEmployees = async (branchId) => {
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('branch_id', branchId)
-        .order('full_name');
+      const { data, error } = await supabase.functions.invoke('get_login_data', {
+        body: { branch_id: branchId }
+      });
       
-      if (!error && data) {
-        setEmployees(data);
+      if (!error && data?.employees) {
+        setEmployees(data.employees);
+      } else if (error) {
+        console.error('Error loading employees:', error);
       }
     } catch (err) {
       console.error('Error loading employees:', err);
@@ -49,27 +56,29 @@ export function LoginNIP() {
     setLoading(true);
     setErrorMsg('');
     try {
-      const { data, error } = await supabase.rpc('verify_employee_pin', {
-        p_profile_id: selectedProfileId,
-        p_pin: pin
+      const { data, error } = await supabase.functions.invoke('iniciar_sesion_cajero', {
+        body: { profile_id: selectedProfileId, pin: pin }
       });
 
       if (error) {
-        throw error;
+        throw new Error(error.message || 'Error de autenticación');
       }
 
-      if (data === true) {
-        // En un flujo real, aquí obtendríamos una sesión o JWT válido de Supabase Auth
-        // Como es simulado/custom auth por ahora, marcamos el éxito
-        alert('Acceso autorizado. (Integración de JWT pendiente por Backend)');
-        navigate('/inventario'); 
+      if (data?.session) {
+        // Establecer la sesión en el cliente (el JWT ya viene con roles y organization_id)
+        await supabase.auth.setSession({
+          access_token: data.session.access_token,
+          refresh_token: data.session.refresh_token
+        });
+        
+        navigate('/'); 
       } else {
-        setErrorMsg('NIP Incorrecto. Intenta de nuevo.');
-        setPin('');
+        throw new Error('No se recibió la sesión del servidor');
       }
     } catch (err) {
       console.error(err);
-      setErrorMsg('Error al conectar con el servidor.');
+      setErrorMsg(err.message === 'NIP Incorrecto' ? 'NIP Incorrecto. Intenta de nuevo.' : 'Error al iniciar sesión.');
+      if (err.message === 'NIP Incorrecto') setPin('');
     } finally {
       setLoading(false);
     }
@@ -122,7 +131,7 @@ export function LoginNIP() {
               >
                 <option value="">-- Selecciona tu Nombre --</option>
                 {employees.map(emp => (
-                  <option key={emp.id} value={emp.id}>{emp.full_name} ({emp.role})</option>
+                  <option key={emp.id} value={emp.id}>{emp.displayName} ({emp.role === 'ADMIN' ? 'Admin' : 'Cajero'})</option>
                 ))}
               </select>
             </div>

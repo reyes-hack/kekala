@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { useBranchStore } from '../store/useBranchStore';
-import { Plus, Store, MapPin, Phone, Hash, Edit2, CheckCircle2, XCircle, Building2, Map } from 'lucide-react';
+import { Plus, Store, MapPin, Phone, Hash, Edit2, CheckCircle2, XCircle, Building2, Map, Bot, Clock } from 'lucide-react';
 
 export function Sucursales() {
   const { activeBranch, fetchBranches, branches, loading: branchesLoading } = useBranchStore();
@@ -22,7 +22,10 @@ export function Sucursales() {
     city: '',
     state: '',
     phone: '',
-    is_active: true
+    is_active: true,
+    opening_time: '10:00',
+    closing_time: '22:00',
+    foodbot_sync_enabled: true
   });
 
   useEffect(() => {
@@ -71,7 +74,10 @@ export function Sucursales() {
         city: branch.city || '',
         state: branch.state || '',
         phone: branch.phone || '',
-        is_active: branch.is_active
+        is_active: branch.is_active,
+        opening_time: branch.opening_time ? branch.opening_time.substring(0, 5) : '10:00',
+        closing_time: branch.closing_time ? branch.closing_time.substring(0, 5) : '22:00',
+        foodbot_sync_enabled: branch.foodbot_sync_enabled ?? true
       });
     } else {
       setEditingBranch(null);
@@ -82,7 +88,10 @@ export function Sucursales() {
         city: '',
         state: '',
         phone: '',
-        is_active: true
+        is_active: true,
+        opening_time: '10:00',
+        closing_time: '22:00',
+        foodbot_sync_enabled: true
       });
     }
     setShowModal(true);
@@ -118,7 +127,10 @@ export function Sucursales() {
         state: formData.state,
         phone: formData.phone,
         is_active: formData.is_active,
-        country_code: 'MX'
+        country_code: 'MX',
+        opening_time: formData.opening_time + ':00',
+        closing_time: formData.closing_time + ':00',
+        foodbot_sync_enabled: formData.foodbot_sync_enabled
       };
 
       if (editingBranch) {
@@ -232,6 +244,18 @@ export function Sucursales() {
                 </div>
               </div>
 
+              {/* FOODBOT Y HORARIOS */}
+              <div style={{ background: 'var(--background-color)', padding: '12px', borderRadius: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', color: branch.foodbot_sync_enabled ? '#10b981' : 'var(--text-muted)', fontWeight: 600 }}>
+                  <Bot size={18} /> 
+                  {branch.foodbot_sync_enabled ? 'Sincronización Bot Activa' : 'Bot Apagado'}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600, background: 'rgba(0,0,0,0.05)', padding: '4px 8px', borderRadius: '8px' }}>
+                  <Clock size={14} />
+                  {branch.opening_time ? branch.opening_time.substring(0, 5) : '10:00'} - {branch.closing_time ? branch.closing_time.substring(0, 5) : '22:00'}
+                </div>
+              </div>
+
               <div style={{ marginTop: 'auto', paddingTop: '16px', borderTop: '1px solid rgba(0,0,0,0.05)', display: 'flex', justifyContent: 'flex-end' }}>
                 <button onClick={() => openModal(branch)} className="neo-btn" style={{ padding: '8px 16px', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <Edit2 size={16} /> Editar
@@ -308,6 +332,41 @@ export function Sucursales() {
                   </label>
                   <input type="text" name="phone" value={formData.phone} onChange={handleInputChange} className="neo-input" placeholder="(000) 000-0000" style={{ padding: '12px 16px', borderRadius: '12px', background: 'var(--background-color)', border: '1px solid var(--border-color)' }} />
                 </div>
+              </div>
+
+              {/* CONFIGURACIÓN FOODBOT */}
+              <div style={{ background: 'rgba(37,99,235,0.03)', border: '1px solid rgba(37,99,235,0.1)', padding: '24px', borderRadius: '16px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <label style={{ fontSize: '0.95rem', color: 'var(--text-primary)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <Bot size={18} style={{color: '#2563eb'}}/> Integración con Foodbot
+                    </label>
+                    <p style={{ margin: '4px 0 0 0', fontSize: '0.85rem', color: 'var(--text-muted)' }}>Sincronizar cortes de esta sucursal automáticamente.</p>
+                  </div>
+                  <label style={{ position: 'relative', display: 'inline-block', width: '50px', height: '28px' }}>
+                    <input type="checkbox" name="foodbot_sync_enabled" checked={formData.foodbot_sync_enabled} onChange={handleInputChange} style={{ opacity: 0, width: 0, height: 0 }} />
+                    <span style={{ position: 'absolute', cursor: 'pointer', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: formData.foodbot_sync_enabled ? '#10b981' : '#cbd5e1', transition: '.4s', borderRadius: '34px' }}>
+                      <span style={{ position: 'absolute', content: '""', height: '20px', width: '20px', left: formData.foodbot_sync_enabled ? '26px' : '4px', bottom: '4px', backgroundColor: 'white', transition: '.4s', borderRadius: '50%', boxShadow: '0 2px 4px rgba(0,0,0,0.2)' }}></span>
+                    </span>
+                  </label>
+                </div>
+
+                {formData.foodbot_sync_enabled && (
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', paddingTop: '16px', borderTop: '1px solid rgba(0,0,0,0.05)' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <label style={{ fontSize: '0.85rem', color: 'var(--text-primary)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <Clock size={16} style={{color: 'var(--text-muted)'}}/> Horario de Apertura
+                      </label>
+                      <input type="time" name="opening_time" value={formData.opening_time} onChange={handleInputChange} className="neo-input" style={{ padding: '10px 16px', borderRadius: '10px', background: 'white', border: '1px solid var(--border-color)', fontWeight: 600 }} />
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <label style={{ fontSize: '0.85rem', color: 'var(--text-primary)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <Clock size={16} style={{color: 'var(--text-muted)'}}/> Horario de Cierre
+                      </label>
+                      <input type="time" name="closing_time" value={formData.closing_time} onChange={handleInputChange} className="neo-input" style={{ padding: '10px 16px', borderRadius: '10px', background: 'white', border: '1px solid var(--border-color)', fontWeight: 600 }} />
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '16px', marginTop: '10px' }}>

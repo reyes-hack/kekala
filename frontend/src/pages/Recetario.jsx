@@ -24,10 +24,14 @@ export function Recetario() {
         .order('foodbot_name', { ascending: true });
 
       // Cargar catálogo de productos para el dropdown
-      const { data: productsData } = await supabase
+      const { data: productsData, error: productsError } = await supabase
         .from('products')
-        .select('id, name, product_code, unit_id')
+        .select('id, name, product_code, unit:catalog_values!unit_id(name)')
         .order('name', { ascending: true });
+        
+      if (productsError) {
+        console.error('Error fetching products:', productsError);
+      }
 
       setMappings(mappingsData || []);
       setProducts(productsData || []);
@@ -98,20 +102,26 @@ export function Recetario() {
     m.foodbot_name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const getUnitForProduct = (productId) => {
+    const product = products.find(p => p.id === productId);
+    if (!product || !product.unit) return '';
+    return Array.isArray(product.unit) ? product.unit[0]?.name : product.unit?.name;
+  };
+
   return (
     <div className="animate-in delay-1">
       <div className="page-header">
         <div>
           <h1>Recetario (BOM Foodbot)</h1>
           <p style={{ color: 'var(--text-secondary)', marginTop: '4px' }}>
-            Mapea los nombres de Foodbot con tus productos y define su gasto por unidad (litros/piezas).
+            Mapea los nombres de Foodbot con tus productos y define su gasto por unidad.
           </p>
         </div>
         <div className="page-header-actions">
-          <button onClick={handleAddMapping} className="neo-btn">
+          <button onClick={handleAddMapping} className="glass-btn" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Plus size={18} /> Agregar Regla
           </button>
-          <button onClick={handleSave} disabled={saving} className="neo-btn neo-btn-primary">
+          <button onClick={handleSave} disabled={saving} className="neo-btn neo-btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             {saving ? 'Guardando...' : <><Save size={18} /> Guardar Cambios</>}
           </button>
         </div>
@@ -123,12 +133,12 @@ export function Recetario() {
         </div>
       )}
 
-      <div className="neo-surface" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-        <div className="search-box">
+      <div className="neo-surface" style={{ padding: '32px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+        <div className="search-box" style={{ maxWidth: '400px' }}>
           <Search size={18} />
           <input 
             type="text" 
-            placeholder="Buscar modificador..." 
+            placeholder="Buscar modificador de Foodbot..." 
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -140,32 +150,33 @@ export function Recetario() {
               <tr>
                 <th>Nombre exacto en Foodbot</th>
                 <th>Producto del Inventario</th>
-                <th>Gasto por Unidad (Ej. 0.05)</th>
+                <th>Gasto por Unidad</th>
                 <th style={{ textAlign: 'center' }}>Acciones</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan="4" style={{ textAlign: 'center', padding: '30px', opacity: 0.5 }}>Cargando...</td></tr>
+                <tr><td colSpan="4" style={{ textAlign: 'center', padding: '30px', opacity: 0.5 }}>Cargando recetas...</td></tr>
               ) : filteredMappings.length === 0 ? (
-                <tr><td colSpan="4" style={{ textAlign: 'center', padding: '30px', opacity: 0.5 }}>No hay reglas definidas. Agrega una nueva.</td></tr>
+                <tr><td colSpan="4" style={{ textAlign: 'center', padding: '30px', opacity: 0.5 }}>No hay reglas definidas. Agrega una nueva equivalencia.</td></tr>
               ) : (
                 filteredMappings.map((mapping) => (
-                  <tr key={mapping.id}>
-                    <td>
+                  <tr key={mapping.id} style={{ transition: 'background-color 0.2s ease', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                    <td style={{ padding: '12px' }}>
                       <input 
                         type="text" 
                         value={mapping.foodbot_name} 
                         onChange={e => handleUpdateRow(mapping.id, 'foodbot_name', e.target.value)}
-                        style={{ width: '100%', padding: '10px 14px', border: 'none', background: 'var(--bg-color)', borderRadius: 'var(--radius-sm)', outline: 'none', color: 'var(--text-primary)', boxShadow: 'var(--neo-shadow-inset)' }}
+                        className="neo-input"
                         placeholder="Ej. Relleno Pistache"
                       />
                     </td>
-                    <td>
+                    <td style={{ padding: '12px' }}>
                       <select 
                         value={mapping.product_id}
                         onChange={e => handleUpdateRow(mapping.id, 'product_id', e.target.value)}
-                        style={{ width: '100%', padding: '10px 14px', border: 'none', background: 'var(--bg-color)', borderRadius: 'var(--radius-sm)', outline: 'none', color: 'var(--text-primary)', boxShadow: 'var(--neo-shadow-inset)', cursor: 'pointer' }}
+                        className="neo-input"
+                        style={{ cursor: 'pointer' }}
                       >
                         <option value="">-- Selecciona un Producto --</option>
                         {products.map(p => (
@@ -173,14 +184,20 @@ export function Recetario() {
                         ))}
                       </select>
                     </td>
-                    <td>
-                      <input 
-                        type="number" 
-                        step="0.0001"
-                        value={mapping.deduction_quantity} 
-                        onChange={e => handleUpdateRow(mapping.id, 'deduction_quantity', e.target.value)}
-                        style={{ width: '100%', padding: '10px 14px', border: 'none', background: 'var(--bg-color)', borderRadius: 'var(--radius-sm)', outline: 'none', color: 'var(--text-primary)', boxShadow: 'var(--neo-shadow-inset)' }}
-                      />
+                    <td style={{ padding: '12px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <input 
+                          type="number" 
+                          step="0.0001"
+                          value={mapping.deduction_quantity} 
+                          onChange={e => handleUpdateRow(mapping.id, 'deduction_quantity', e.target.value)}
+                          className="neo-input"
+                          style={{ width: '120px' }}
+                        />
+                        <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', fontWeight: 500 }}>
+                          {mapping.product_id ? getUnitForProduct(mapping.product_id) : 'Unidad'}
+                        </span>
+                      </div>
                     </td>
                     <td style={{ textAlign: 'center' }}>
                       <button 
