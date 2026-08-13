@@ -71,7 +71,8 @@ export function Sales() {
     try {
       setLoading(true);
       setStatus(null);
-      const res = await fetch('http://localhost:3001/api/ventas/sync', {
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+      const res = await fetch(`${apiUrl}/api/ventas/sync`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ fecha: syncDate })

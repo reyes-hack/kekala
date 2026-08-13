@@ -21,15 +21,12 @@ async function reset() {
     for (const p of products) {
         const unitName = unitMap[p.unit_id];
         
-        let stock = 100;
-        let min = 50;
+        let stock = 50;
+        let min = 20;
 
-        if (unitName === 'Mililitro') {
+        if (unitName === 'Mililitro' || unitName === 'Gramo') {
             stock = 5000;
-            min = 1000;
-        } else if (unitName === 'Gramo') {
-            stock = 5000;
-            min = 1000;
+            min = 1500;
         }
 
         const { error: updErr } = await supabase
@@ -43,7 +40,7 @@ async function reset() {
             console.log(`Updated product ${p.id} to stock ${stock} (Unit: ${unitName})`);
         }
     }
-    console.log('Stock reseteado a estándar (100 pzas / 5000 ml)');
+    console.log('Stock reseteado a estándar (50 pzas/litros/kg)');
 }
 
 reset();
