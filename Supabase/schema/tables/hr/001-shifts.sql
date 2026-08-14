@@ -68,7 +68,7 @@ CREATE TABLE IF NOT EXISTS public.shifts (
         UNIQUE (branch_id, name),
 
     CONSTRAINT chk_shifts_time
-        CHECK (start_time < end_time)
+        CHECK (start_time != end_time)
 
 );
 
