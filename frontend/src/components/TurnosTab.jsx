@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabaseClient';
 import { useBranchStore } from '../store/useBranchStore';
 import { Clock, Plus, Trash2, Edit2, Calendar } from 'lucide-react';
 import { NeoSelect } from './NeoSelect';
+import { NeoTimePicker } from './NeoTimePicker';
 
 export function TurnosTab() {
   const { branches } = useBranchStore();
@@ -285,9 +286,7 @@ export function TurnosTab() {
               <div style={{ display: 'flex', gap: '16px' }}>
                 <div style={{ flex: 1 }}>
                   <label style={{ display: 'block', fontSize: '0.875rem', marginBottom: '8px' }}>Hora Entrada</label>
-                  <input 
-                    type="time" 
-                    className="neo-input" 
+                  <NeoTimePicker 
                     value={shiftForm.start_time} 
                     onChange={e => setShiftForm({...shiftForm, start_time: e.target.value})}
                     required
@@ -295,9 +294,7 @@ export function TurnosTab() {
                 </div>
                 <div style={{ flex: 1 }}>
                   <label style={{ display: 'block', fontSize: '0.875rem', marginBottom: '8px' }}>Hora Salida</label>
-                  <input 
-                    type="time" 
-                    className="neo-input" 
+                  <NeoTimePicker 
                     value={shiftForm.end_time} 
                     onChange={e => setShiftForm({...shiftForm, end_time: e.target.value})}
                     required
