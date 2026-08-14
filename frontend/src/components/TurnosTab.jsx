@@ -178,8 +178,8 @@ export function TurnosTab() {
           <p>No hay turnos configurados aún.</p>
         </div>
       ) : (
-        <div style={{ overflowX: 'auto', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
+        <div style={{ overflowX: 'auto', borderRadius: '12px', border: '1px solid var(--border-color)', paddingBottom: '16px' }}>
+          <table style={{ width: '100%', minWidth: '1200px', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
             <thead>
               <tr style={{ background: 'rgba(0,0,0,0.02)' }}>
                 <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid var(--border-color)', minWidth: '180px' }}>Sucursal / Horario</th>
