@@ -53,7 +53,7 @@ export function Configuracion() {
         </div>
 
         {/* Content Area */}
-        <div style={{ flex: 1 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
           {activeTab === 'empleados' && <EmpleadosTab />}
           {activeTab === 'turnos' && <TurnosTab />}
           {activeTab === 'sucursales' && <div className="neo-surface" style={{ padding: '0 24px 24px 24px', borderRadius: '16px' }}><Sucursales /></div>}
