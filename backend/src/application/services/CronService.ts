@@ -11,11 +11,24 @@ export class CronService {
     }
 
     public start() {
-        // Ejecutar cada hora, en el minuto 0
+        // Ejecutar cada hora, en el minuto 0 (Sync Foodbot)
         cron.schedule('0 * * * *', async () => {
             console.log('[Cron] Iniciando revisión automática de Foodbot Sync...');
             await this.runAutomatedSync();
         });
+
+        // Ejecutar cada hora, en el minuto 15 (Marcar Ausentes)
+        cron.schedule('15 * * * *', async () => {
+            console.log('[Cron] Iniciando revisión de inasistencias...');
+            await this.checkAbsences();
+        });
+
+        // Ejecutar diario a las 3:00 AM (Limpiar Fotos)
+        cron.schedule('0 3 * * *', async () => {
+            console.log('[Cron] Iniciando limpieza de fotos de asistencia...');
+            await this.cleanAttendancePhotos();
+        });
+
         console.log('[Cron] Servicio de tareas programadas iniciado.');
     }
 
@@ -103,6 +116,82 @@ export class CronService {
                 status: 'ERROR',
                 message: error.message
             });
+        }
+    }
+
+    private async checkAbsences() {
+        try {
+            const now = new Date();
+            let dayOfWeek = now.getDay() - 1;
+            if (dayOfWeek === -1) dayOfWeek = 6; 
+
+            const currentTime = now.toTimeString().split(' ')[0]; 
+            const todayStr = now.toISOString().split('T')[0];
+
+            const { data: pastAssignments, error } = await supabase
+                .from('shift_assignments')
+                .select(`
+                    organization_id, profile_id, shift_id,
+                    shifts!inner(branch_id, end_time)
+                `)
+                .eq('day_of_week', dayOfWeek)
+                .eq('is_active', true)
+                .lt('shifts.end_time', currentTime);
+
+            if (error || !pastAssignments) {
+                console.error('[Cron] Error fetch assignments:', error);
+                return;
+            }
+
+            for (const assignment of pastAssignments) {
+                const { data: existingLog } = await supabase
+                    .from('attendance_logs')
+                    .select('id')
+                    .eq('profile_id', assignment.profile_id)
+                    .eq('log_date', todayStr)
+                    .single();
+
+                if (!existingLog) {
+                    await supabase.from('attendance_logs').insert({
+                        organization_id: assignment.organization_id,
+                        branch_id: assignment.shifts.branch_id,
+                        profile_id: assignment.profile_id,
+                        shift_id: assignment.shift_id,
+                        log_date: todayStr,
+                        status: 'ABSENT',
+                        notes: 'Ausencia detectada por el sistema.'
+                    });
+                }
+            }
+        } catch (error) {
+            console.error('[Cron] Error en checkAbsences:', error);
+        }
+    }
+
+    private async cleanAttendancePhotos() {
+        try {
+            const yesterday = new Date();
+            yesterday.setDate(yesterday.getDate() - 1);
+            const limitDateStr = yesterday.toISOString().split('T')[0];
+
+            const { data: oldLogs, error } = await supabase
+                .from('attendance_logs')
+                .select('id, photo_url')
+                .lt('log_date', new Date().toISOString().split('T')[0])
+                .not('photo_url', 'is', null);
+
+            if (error || !oldLogs) return;
+
+            const filesToDelete = oldLogs.map(l => l.photo_url!.split('attendance-photos/')[1]).filter(Boolean);
+
+            if (filesToDelete.length > 0) {
+                await supabase.storage.from('attendance-photos').remove(filesToDelete);
+                const logIds = oldLogs.map(l => l.id);
+                await supabase.from('attendance_logs').update({ photo_url: null }).in('id', logIds);
+                console.log(`[Cron] Se limpiaron ${filesToDelete.length} fotos de asistencia.`);
+            }
+        } catch (error) {
+            console.error('[Cron] Error en cleanAttendancePhotos:', error);
         }
     }
 }
