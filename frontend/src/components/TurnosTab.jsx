@@ -261,13 +261,10 @@ export function TurnosTab() {
                 <NeoSelect 
                   value={shiftForm.branch_id} 
                   onChange={(e) => setShiftForm({...shiftForm, branch_id: e.target.value})}
+                  options={branches.map(b => ({ label: b.name, value: b.id }))}
+                  placeholder="Selecciona sucursal"
                   required
-                >
-                  <option value="">Selecciona sucursal</option>
-                  {branches.map(b => (
-                    <option key={b.id} value={b.id}>{b.name}</option>
-                  ))}
-                </NeoSelect>
+                />
               </div>
 
               <div>
