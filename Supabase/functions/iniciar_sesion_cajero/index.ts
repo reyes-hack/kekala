@@ -45,10 +45,22 @@ serve(async (req) => {
 
     const email = userData.user.email
 
-    // 3. Actualizamos su contraseña a una nueva temporal aleatoria
+    // 2.5 Obtener el perfil del empleado para inyectar branch_id y organization_id
+    const { data: profileData } = await supabaseClient
+      .from('profiles')
+      .select('branch_id, organization_id')
+      .eq('id', profile_id)
+      .single()
+
+    // 3. Actualizamos su contraseña Y escribimos branch_id/org_id en app_metadata
     const tempPassword = crypto.randomUUID() + '!A1'
     const { error: updateError } = await supabaseClient.auth.admin.updateUserById(profile_id, { 
-      password: tempPassword 
+      password: tempPassword,
+      app_metadata: {
+        ...(userData.user.app_metadata || {}),
+        branch_id: profileData?.branch_id || null,
+        organization_id: profileData?.organization_id || null
+      }
     })
     
     if (updateError) throw updateError
