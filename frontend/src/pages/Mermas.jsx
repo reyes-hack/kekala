@@ -134,7 +134,8 @@ export function Mermas() {
         batch: item.waste_record?.metadata?.batch_number || '-',
         quantity: item.quantity,
         reason: item.waste_record?.reason?.name || '-',
-        notes: item.waste_record?.notes
+        notes: item.waste_record?.notes,
+        photo_url: item.waste_record?.metadata?.photo_url || null
       }));
 
       setMermas(formattedMermas);
@@ -192,12 +193,14 @@ export function Mermas() {
       // 2. Insert into waste_records
       const recordId = crypto.randomUUID();
       const orgId = currentUser.app_metadata?.organization_id || activeBranch.organization_id;
+      // For cashiers: always use JWT branch_id to prevent cross-branch registration
+      const branchId = currentUser.app_metadata?.branch_id || activeBranch.id;
       const { error: recordError } = await supabase
         .from('waste_records')
         .insert({
           id: recordId,
           organization_id: orgId,
-          branch_id: activeBranch.id,
+          branch_id: branchId,
           waste_number: wasteNum,
           reported_by: currentUser.id,
           status_id: approvedStatusId,
@@ -503,7 +506,8 @@ export function Mermas() {
                   <th style={{ padding: '14px 16px', textAlign: 'left', background: 'var(--color-secondary)', color: 'white', fontWeight: 600, letterSpacing: '0.5px' }}>TURNO</th>
                   <th style={{ padding: '14px 16px', textAlign: 'center', background: 'var(--color-secondary)', color: 'white', fontWeight: 600, letterSpacing: '0.5px' }}>CANTIDAD</th>
                   <th style={{ padding: '14px 16px', textAlign: 'left', background: 'var(--color-secondary)', color: 'white', fontWeight: 600, letterSpacing: '0.5px' }}>LOTE</th>
-                  <th style={{ padding: '14px 16px', textAlign: 'left', background: 'var(--color-secondary)', color: 'white', fontWeight: 600, letterSpacing: '0.5px', borderTopRightRadius: '12px' }}>MOTIVO</th>
+                  <th style={{ padding: '14px 16px', textAlign: 'left', background: 'var(--color-secondary)', color: 'white', fontWeight: 600, letterSpacing: '0.5px' }}>MOTIVO</th>
+                  <th style={{ padding: '14px 16px', textAlign: 'center', background: 'var(--color-secondary)', color: 'white', fontWeight: 600, letterSpacing: '0.5px', borderTopRightRadius: '12px' }}>FOTO</th>
                 </tr>
               </thead>
               <tbody>
@@ -518,6 +522,15 @@ export function Mermas() {
                     </td>
                     <td style={{ padding: '12px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>{m.batch}</td>
                     <td style={{ padding: '12px', fontSize: '0.85rem' }}>{m.reason}</td>
+                    <td style={{ padding: '12px', textAlign: 'center' }}>
+                      {m.photo_url ? (
+                        <a href={m.photo_url} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-block' }}>
+                          <img src={m.photo_url} alt="Evidencia" style={{ width: '40px', height: '40px', objectFit: 'cover', borderRadius: '8px', border: '2px solid rgba(26, 79, 153, 0.15)', cursor: 'pointer' }} />
+                        </a>
+                      ) : (
+                        <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>—</span>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>

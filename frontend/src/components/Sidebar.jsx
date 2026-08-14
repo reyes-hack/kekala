@@ -144,16 +144,34 @@ export function Sidebar() {
             <p style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '8px', letterSpacing: '0.05em' }}>
               Sucursal Activa
             </p>
-            <NeoSelect
-              name="branch"
-              value={activeBranch?.id || ''}
-              onChange={(e) => {
-                const b = branches.find(br => br.id === e.target.value);
-                if (b) setActiveBranch(b);
-              }}
-              options={branches.map(b => ({ value: b.id, label: b.name }))}
-              placeholder="Selecciona sucursal..."
-            />
+            {isAdmin ? (
+              <NeoSelect
+                name="branch"
+                value={activeBranch?.id || ''}
+                onChange={(e) => {
+                  const b = branches.find(br => br.id === e.target.value);
+                  if (b) setActiveBranch(b);
+                }}
+                options={branches.map(b => ({ value: b.id, label: b.name }))}
+                placeholder="Selecciona sucursal..."
+              />
+            ) : (
+              <div style={{ 
+                padding: '10px 14px', 
+                borderRadius: '12px', 
+                background: 'rgba(26, 79, 153, 0.06)', 
+                border: '1px solid rgba(26, 79, 153, 0.12)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                color: 'var(--text-primary)',
+                fontWeight: 600,
+                fontSize: '0.9rem'
+              }}>
+                <MapPin size={16} style={{ color: '#1a4f99' }} />
+                {activeBranch?.name || 'Sin sucursal'}
+              </div>
+            )}
           </div>
         ) : (
           <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1.5rem' }}>
