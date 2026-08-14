@@ -93,12 +93,12 @@ export function AsistenciaAdmin() {
           </div>
           <div style={{ flex: '1', minWidth: '200px' }}>
             <label style={{ display: 'block', fontSize: '0.875rem', marginBottom: '8px', color: 'var(--text-secondary)' }}>Sucursal</label>
-            <NeoSelect value={branchFilter} onChange={(e) => setBranchFilter(e.target.value)}>
-              <option value="">Todas las sucursales</option>
-              {branches.map(b => (
-                <option key={b.id} value={b.id}>{b.name}</option>
-              ))}
-            </NeoSelect>
+            <NeoSelect 
+              value={branchFilter} 
+              onChange={(e) => setBranchFilter(e.target.value)}
+              options={[{ label: 'Todas las sucursales', value: '' }, ...branches.map(b => ({ label: b.name, value: b.id }))]}
+              placeholder="Todas las sucursales"
+            />
           </div>
         </div>
 
