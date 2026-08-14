@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { useBranchStore } from '../store/useBranchStore';
 import { Plus, Download, PackageOpen, Trash2, Calendar, FileText, Hash, AlertTriangle, Clock, Box } from 'lucide-react';
@@ -9,10 +9,12 @@ import { NeoDatePicker } from '../components/NeoDatePicker';
 import { useNeoFilters } from '../hooks/useNeoFilters';
 import { NeoAdvancedFilter } from '../components/NeoAdvancedFilter';
 import { NeoPagination } from '../components/NeoPagination';
+import { AuthContext } from '../components/ProtectedRoute';
 
 export function Mermas() {
 // ... (saltando las partes que no cambian, pero oh espera, tengo que reemplazar líneas exactas)
   const { activeBranch } = useBranchStore();
+  const { isAdmin } = useContext(AuthContext);
   const [mermas, setMermas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -88,6 +90,9 @@ export function Mermas() {
   const loadMermas = async () => {
     setLoading(true);
     try {
+      // For cashiers, use JWT branch_id to match the same branch used for insert
+      const queryBranchId = currentUser?.app_metadata?.branch_id || activeBranch.id;
+
       let query = supabase
         .from('waste_items')
         .select(`
@@ -95,10 +100,11 @@ export function Mermas() {
           product:products(name),
           waste_record:waste_records!inner(
             waste_number, waste_date, metadata, notes, branch_id,
-            reason:catalog_values!reason_id(name)
+            reason:catalog_values!reason_id(name),
+            reporter:profiles!reported_by(first_name, last_name, display_name)
           )
         `, { count: 'exact' })
-        .eq('waste_record.branch_id', activeBranch.id);
+        .eq('waste_record.branch_id', queryBranchId);
 
       // Advanced Filters
       if (advancedFilters.date_from) {
@@ -128,19 +134,25 @@ export function Mermas() {
       
       setTotalRecords(count || 0);
 
-      const formattedMermas = (data || []).map(item => ({
-        id: item.id,
-        date: item.waste_record?.waste_date,
-        number: item.waste_record?.waste_number,
-        product_name: item.product?.name || 'Desconocido',
-        flavor: item.waste_record?.metadata?.flavor || '-',
-        shift: item.waste_record?.metadata?.shift || '-',
-        batch: item.waste_record?.metadata?.batch_number || '-',
-        quantity: item.quantity,
-        reason: item.waste_record?.reason?.name || '-',
-        notes: item.waste_record?.notes,
-        photo_url: item.waste_record?.metadata?.photo_url || null
-      }));
+      const formattedMermas = (data || []).map(item => {
+        const reporter = item.waste_record?.reporter;
+        const reporterName = reporter?.display_name || 
+          ((reporter?.first_name || '') + ' ' + (reporter?.last_name || '')).trim() || 'Desconocido';
+        return {
+          id: item.id,
+          date: item.waste_record?.waste_date,
+          number: item.waste_record?.waste_number,
+          product_name: item.product?.name || 'Desconocido',
+          flavor: item.waste_record?.metadata?.flavor || '-',
+          shift: item.waste_record?.metadata?.shift || '-',
+          batch: item.waste_record?.metadata?.batch_number || '-',
+          quantity: item.quantity,
+          reason: item.waste_record?.reason?.name || '-',
+          notes: item.waste_record?.notes,
+          photo_url: item.waste_record?.metadata?.photo_url || null,
+          reported_by_name: reporterName
+        };
+      });
 
       setMermas(formattedMermas);
     } catch (error) {
@@ -536,6 +548,7 @@ export function Mermas() {
                   <th style={{ padding: '14px 16px', textAlign: 'center', background: 'var(--color-secondary)', color: 'white', fontWeight: 600, letterSpacing: '0.5px' }}>CANTIDAD</th>
                   <th style={{ padding: '14px 16px', textAlign: 'left', background: 'var(--color-secondary)', color: 'white', fontWeight: 600, letterSpacing: '0.5px' }}>LOTE</th>
                   <th style={{ padding: '14px 16px', textAlign: 'left', background: 'var(--color-secondary)', color: 'white', fontWeight: 600, letterSpacing: '0.5px' }}>MOTIVO</th>
+                  {isAdmin && <th style={{ padding: '14px 16px', textAlign: 'left', background: 'var(--color-secondary)', color: 'white', fontWeight: 600, letterSpacing: '0.5px' }}>REGISTRADO POR</th>}
                   <th style={{ padding: '14px 16px', textAlign: 'center', background: 'var(--color-secondary)', color: 'white', fontWeight: 600, letterSpacing: '0.5px', borderTopRightRadius: '12px' }}>FOTO</th>
                 </tr>
               </thead>
@@ -551,6 +564,7 @@ export function Mermas() {
                     </td>
                     <td style={{ padding: '12px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>{m.batch}</td>
                     <td style={{ padding: '12px', fontSize: '0.85rem' }}>{m.reason}</td>
+                    {isAdmin && <td style={{ padding: '12px', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)' }}>{m.reported_by_name}</td>}
                     <td style={{ padding: '12px', textAlign: 'center' }}>
                       {m.photo_url ? (
                         <a href={m.photo_url} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-block' }}>
