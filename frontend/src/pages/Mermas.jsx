@@ -52,7 +52,11 @@ export function Mermas() {
 
   const loadFormCatalogs = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      // Use getSession() instead of getUser() because the JWT hook injects
+      // branch_id, organization_id, and roles into app_metadata at token level.
+      // getUser() returns server-stored metadata WITHOUT hook modifications.
+      const { data: { session } } = await supabase.auth.getSession();
+      const user = session?.user;
       setCurrentUser(user);
 
       // Use RPC function instead of querying table directly to respect RLS
