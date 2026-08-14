@@ -191,10 +191,11 @@ export class InventorySyncService {
 
                 for (const mod of (sucursal.modificadoresVendidos || [])) {
                     // Para gráficas
+                    const modCode = 'MOD_' + mod.modifierName.toUpperCase().replace(/[^A-Z0-9_]/g, '_').substring(0, 40);
                     externalItemsInserts.push({
                         organization_id: branchData.organization_id,
                         report_id: reportId,
-                        source_product_code: 'MODIFIER',
+                        source_product_code: modCode,
                         source_product_name: mod.modifierName,
                         orders_count: mod.ordenes || 0,
                         quantity_sold: mod.cantidad || 0,
