@@ -299,6 +299,26 @@ export function Mermas() {
         
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '24px', padding: '24px' }}>
           
+          {/* Warning Message for Employees */}
+          {currentUser && currentUser.app_metadata?.roles?.includes('CASHIER') && (
+            <div style={{ 
+              marginBottom: '0px', 
+              padding: '12px 16px', 
+              borderRadius: '12px', 
+              background: 'rgba(239, 68, 68, 0.1)', 
+              border: '1px solid rgba(239, 68, 68, 0.2)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              color: 'var(--status-danger)'
+            }}>
+              <AlertTriangle size={20} style={{ flexShrink: 0 }} />
+              <div style={{ fontSize: '0.9rem', fontWeight: 500 }}>
+                <strong>Aviso Importante:</strong> El registro de mermas es irreversible. Una vez guardado, este reporte no podrá ser modificado ni eliminado y descontará el producto del inventario de forma permanente.
+              </div>
+            </div>
+          )}
+
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px' }}>
             
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
