@@ -55,7 +55,10 @@ export function Mermas() {
       const { data: { user } } = await supabase.auth.getUser();
       setCurrentUser(user);
 
-      const { data: prods } = await supabase.from('products').select('id, name').eq('is_active', true);
+      // Use RPC function instead of querying table directly to respect RLS
+      const { data: prods, error: prodsErr } = await supabase.rpc('get_pos_products');
+      if (prodsErr) console.error('Error fetching products:', prodsErr);
+      
       setProducts((prods || []).map(p => ({ label: p.name, value: p.id })));
 
       const { data: catalogTypes } = await supabase.from('catalog_types').select('id, code').in('code', ['WASTE_REASON', 'WASTE_STATUS']);
