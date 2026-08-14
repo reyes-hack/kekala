@@ -184,25 +184,27 @@ export function Sidebar() {
           ))}
           <div style={{ flex: 1 }} />
           
-          <button
-            onClick={() => setIsCheckoutModalOpen(true)}
-            className="nav-item"
-            style={{
-              justifyContent: isCollapsed ? 'center' : 'flex-start',
-              padding: isCollapsed ? '10px' : '10px 14px',
-              borderRadius: 'var(--radius-sm)',
-              gap: isCollapsed ? 0 : '12px',
-              background: 'transparent',
-              border: 'none',
-              color: 'var(--text-muted)',
-              cursor: 'pointer',
-              marginTop: 'auto'
-            }}
-            title={isCollapsed ? 'Registrar Salida' : ''}
-          >
-            <UserCheck size={20} style={{ flexShrink: 0 }} />
-            {!isCollapsed && <span style={{ whiteSpace: 'nowrap', overflow: 'hidden' }}>Registrar Salida</span>}
-          </button>
+          {!isAdmin && (
+            <button
+              onClick={() => setIsCheckoutModalOpen(true)}
+              className="nav-item"
+              style={{
+                justifyContent: isCollapsed ? 'center' : 'flex-start',
+                padding: isCollapsed ? '10px' : '10px 14px',
+                borderRadius: 'var(--radius-sm)',
+                gap: isCollapsed ? 0 : '12px',
+                background: 'transparent',
+                border: 'none',
+                color: 'var(--text-muted)',
+                cursor: 'pointer',
+                marginTop: 'auto'
+              }}
+              title={isCollapsed ? 'Registrar Salida' : ''}
+            >
+              <UserCheck size={20} style={{ flexShrink: 0 }} />
+              {!isCollapsed && <span style={{ whiteSpace: 'nowrap', overflow: 'hidden' }}>Registrar Salida</span>}
+            </button>
+          )}
 
           <button
             onClick={() => supabase.auth.signOut()}
