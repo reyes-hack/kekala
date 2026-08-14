@@ -40,7 +40,17 @@ export function AsistenciaAdmin() {
 
       const { data, error } = await query;
       if (error) throw error;
-      setLogs(data || []);
+      
+      // Generate signed URLs for private bucket
+      const logsWithUrls = await Promise.all((data || []).map(async (log) => {
+        if (log.photo_url) {
+          const { data: signedData } = await supabase.storage.from('attendance-photos').createSignedUrl(log.photo_url, 3600); // 1 hour expiry
+          return { ...log, signed_photo_url: signedData?.signedUrl || null };
+        }
+        return log;
+      }));
+      
+      setLogs(logsWithUrls);
     } catch (err) {
       console.error(err);
     } finally {
@@ -60,12 +70,6 @@ export function AsistenciaAdmin() {
   const formatTime = (isoString) => {
     if (!isoString) return '--:--';
     return new Date(isoString).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  };
-
-  const getPhotoUrl = (path) => {
-    if (!path) return null;
-    const { data } = supabase.storage.from('attendance-photos').getPublicUrl(path);
-    return data.publicUrl;
   };
 
   return (
@@ -126,7 +130,7 @@ export function AsistenciaAdmin() {
               <tbody>
                 {logs.map(log => {
                   const status = getStatusColor(log.status);
-                  const photoUrl = getPhotoUrl(log.photo_url);
+                  const photoUrl = log.signed_photo_url;
 
                   return (
                     <tr key={log.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
