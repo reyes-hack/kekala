@@ -193,7 +193,7 @@ export function Mermas() {
       const { data: record, error: recordError } = await supabase
         .from('waste_records')
         .insert({
-          organization_id: activeBranch.organization_id,
+          organization_id: currentUser.app_metadata?.organization_id || activeBranch.organization_id,
           branch_id: activeBranch.id,
           waste_number: wasteNum,
           reported_by: currentUser.id,
