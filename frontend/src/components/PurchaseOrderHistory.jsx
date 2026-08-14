@@ -273,8 +273,8 @@ export function PurchaseOrderHistory() {
           <p>Las órdenes generadas aparecerán aquí.</p>
         </div>
       ) : (
-        orders.map(order => (
-          <div key={order.id} className="neo-surface fade-in" style={{ padding: '24px', borderRadius: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderLeft: `6px solid ${getStatusColor(order.status)}` }}>
+        orders.map((order, index) => (
+          <div key={order.id} className="neo-surface fade-in" style={{ padding: '24px', borderRadius: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderLeft: `6px solid ${getStatusColor(order.status)}`, position: 'relative', zIndex: orders.length - index }}>
             <div>
               <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '4px' }}>
                 {new Date(order.created_at).toLocaleString('es-MX', { dateStyle: 'long', timeStyle: 'short' })}
