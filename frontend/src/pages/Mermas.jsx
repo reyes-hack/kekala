@@ -193,8 +193,33 @@ export function Mermas() {
       // 2. Insert into waste_records
       const recordId = crypto.randomUUID();
       const orgId = currentUser.app_metadata?.organization_id || activeBranch.organization_id;
-      // For cashiers: always use JWT branch_id to prevent cross-branch registration
-      const branchId = currentUser.app_metadata?.branch_id || activeBranch.id;
+      const isCashier = currentUser.app_metadata?.roles?.includes('CASHIER');
+      const jwtBranchId = currentUser.app_metadata?.branch_id;
+      
+      // DEBUG: Verificar qué branch_id se usará
+      console.log('🔍 DEBUG Merma Insert:', {
+        jwtBranchId,
+        activeBranchId: activeBranch.id,
+        activeBranchName: activeBranch.name,
+        isCashier,
+        orgId,
+        roles: currentUser.app_metadata?.roles
+      });
+
+      // For cashiers: ALWAYS use JWT branch_id - never trust the UI store
+      let branchId;
+      if (isCashier) {
+        if (!jwtBranchId) {
+          alert('Error de seguridad: Tu sesión no tiene sucursal asignada. Cierra sesión e inicia de nuevo.');
+          setSaving(false);
+          return;
+        }
+        branchId = jwtBranchId;
+      } else {
+        // Admin can register in any branch
+        branchId = activeBranch.id;
+      }
+
       const { error: recordError } = await supabase
         .from('waste_records')
         .insert({
