@@ -68,8 +68,9 @@ export function TurnosTab() {
     setSaving(true);
     try {
       // Necesitamos el organization_id de la sucursal seleccionada
-      const orgId = (await supabase.auth.getSession()).data.session?.user?.user_metadata?.organization_id;
-      if (!orgId) throw new Error("No organization_id found in session");
+      const selectedBranch = branches.find(b => b.id === shiftForm.branch_id);
+      const orgId = selectedBranch?.organization_id;
+      if (!orgId) throw new Error("No organization_id found for selected branch");
 
       const payload = {
         organization_id: orgId,
@@ -111,7 +112,10 @@ export function TurnosTab() {
 
   const handleAssignEmployee = async (shiftId, dayOfWeek, profileId) => {
     try {
-      const orgId = (await supabase.auth.getSession()).data.session?.user?.user_metadata?.organization_id;
+      const shift = shifts.find(s => s.id === shiftId);
+      const selectedBranch = branches.find(b => b.id === shift?.branch_id);
+      const orgId = selectedBranch?.organization_id;
+      if (!orgId) throw new Error("No organization_id found for selected branch");
       
       if (!profileId) {
         // Eliminar asignación actual si la hay
