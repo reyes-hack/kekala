@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Settings, Users, Store, Shield, Plus, X, Lock } from 'lucide-react';
+import { Settings, Users, Store, Shield, Plus, X, Lock, Calendar } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { Sucursales } from './Sucursales';
 import { useBranchStore } from '../store/useBranchStore';
 import { NeoSelect } from '../components/NeoSelect';
+import { TurnosTab } from '../components/TurnosTab';
 
 export function Configuracion() {
   const [activeTab, setActiveTab] = useState('empleados');
@@ -27,6 +28,14 @@ export function Configuracion() {
           </button>
           
           <button 
+            onClick={() => setActiveTab('turnos')}
+            className={`neo-btn ${activeTab === 'turnos' ? 'active' : ''}`}
+            style={{ justifyContent: 'flex-start', padding: '12px 16px', background: activeTab === 'turnos' ? 'var(--accent-gradient)' : 'transparent', color: activeTab === 'turnos' ? 'var(--text-on-brand)' : 'var(--text-primary)', boxShadow: activeTab === 'turnos' ? 'var(--accent-glow)' : 'none', border: 'none' }}
+          >
+            <Calendar size={18} /> Turnos Semanales
+          </button>
+          
+          <button 
             onClick={() => setActiveTab('sucursales')}
             className={`neo-btn ${activeTab === 'sucursales' ? 'active' : ''}`}
             style={{ justifyContent: 'flex-start', padding: '12px 16px', background: activeTab === 'sucursales' ? 'var(--accent-gradient)' : 'transparent', color: activeTab === 'sucursales' ? 'var(--text-on-brand)' : 'var(--text-primary)', boxShadow: activeTab === 'sucursales' ? 'var(--accent-glow)' : 'none', border: 'none' }}
@@ -46,6 +55,7 @@ export function Configuracion() {
         {/* Content Area */}
         <div style={{ flex: 1 }}>
           {activeTab === 'empleados' && <EmpleadosTab />}
+          {activeTab === 'turnos' && <TurnosTab />}
           {activeTab === 'sucursales' && <div className="neo-surface" style={{ padding: '0 24px 24px 24px', borderRadius: '16px' }}><Sucursales /></div>}
           {activeTab === 'sistema' && <SistemaTab />}
         </div>
