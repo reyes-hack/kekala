@@ -190,10 +190,13 @@ export function Mermas() {
       }
 
       // 2. Insert into waste_records
-      const { data: record, error: recordError } = await supabase
+      const recordId = crypto.randomUUID();
+      const orgId = currentUser.app_metadata?.organization_id || activeBranch.organization_id;
+      const { error: recordError } = await supabase
         .from('waste_records')
         .insert({
-          organization_id: currentUser.app_metadata?.organization_id || activeBranch.organization_id,
+          id: recordId,
+          organization_id: orgId,
           branch_id: activeBranch.id,
           waste_number: wasteNum,
           reported_by: currentUser.id,
@@ -207,9 +210,7 @@ export function Mermas() {
             photo_url: photoUrl
           },
           notes: formData.notes
-        })
-        .select()
-        .single();
+        });
 
       if (recordError) throw recordError;
 
@@ -217,8 +218,8 @@ export function Mermas() {
       const { error: itemsError } = await supabase
         .from('waste_items')
         .insert({
-          organization_id: activeBranch.organization_id,
-          waste_record_id: record.id,
+          organization_id: orgId,
+          waste_record_id: recordId,
           product_id: formData.product,
           quantity: formData.quantity,
           unit_cost_at_time: 0,
