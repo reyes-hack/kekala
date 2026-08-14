@@ -155,18 +155,29 @@ export class InventorySyncService {
                 let recipeInputsProcessed = 0;
                 const deductedItems: { name: string, quantity: number }[] = [];
 
+                const itemsMap = new Map();
+
                 for (const prod of (sucursal.productosVendidos || [])) {
                     // Para gráficas
-                    externalItemsInserts.push({
-                        organization_id: branchData.organization_id,
-                        report_id: reportId,
-                        source_product_code: prod.productCode || 'N/A',
-                        source_product_name: prod.productName,
-                        orders_count: prod.ordenes || 0,
-                        quantity_sold: prod.cantidad || 0,
-                        total_sales: prod.ventas || 0,
-                        raw_data: { type: 'product' }
-                    });
+                    const prodCode = prod.productCode || 'N/A';
+                    const key = `${reportId}_${prodCode}`;
+                    if (itemsMap.has(key)) {
+                        const ex = itemsMap.get(key);
+                        ex.orders_count += (prod.ordenes || 0);
+                        ex.quantity_sold += (prod.cantidad || 0);
+                        ex.total_sales += (prod.ventas || 0);
+                    } else {
+                        itemsMap.set(key, {
+                            organization_id: branchData.organization_id,
+                            report_id: reportId,
+                            source_product_code: prodCode,
+                            source_product_name: prod.productName,
+                            orders_count: prod.ordenes || 0,
+                            quantity_sold: prod.cantidad || 0,
+                            total_sales: prod.ventas || 0,
+                            raw_data: { type: 'product' }
+                        });
+                    }
 
                     // Para inventario
                     const { data: productInfo } = await supabase
@@ -192,16 +203,24 @@ export class InventorySyncService {
                 for (const mod of (sucursal.modificadoresVendidos || [])) {
                     // Para gráficas
                     const modCode = 'MOD_' + mod.modifierName.toUpperCase().replace(/[^A-Z0-9_]/g, '_').substring(0, 40);
-                    externalItemsInserts.push({
-                        organization_id: branchData.organization_id,
-                        report_id: reportId,
-                        source_product_code: modCode,
-                        source_product_name: mod.modifierName,
-                        orders_count: mod.ordenes || 0,
-                        quantity_sold: mod.cantidad || 0,
-                        total_sales: mod.ventas || 0,
-                        raw_data: { type: 'modifier' }
-                    });
+                    const key = `${reportId}_${modCode}`;
+                    if (itemsMap.has(key)) {
+                        const ex = itemsMap.get(key);
+                        ex.orders_count += (mod.ordenes || 0);
+                        ex.quantity_sold += (mod.cantidad || 0);
+                        ex.total_sales += (mod.ventas || 0);
+                    } else {
+                        itemsMap.set(key, {
+                            organization_id: branchData.organization_id,
+                            report_id: reportId,
+                            source_product_code: modCode,
+                            source_product_name: mod.modifierName,
+                            orders_count: mod.ordenes || 0,
+                            quantity_sold: mod.cantidad || 0,
+                            total_sales: mod.ventas || 0,
+                            raw_data: { type: 'modifier' }
+                        });
+                    }
 
                     // Para inventario
                     const normalizedName = mod.modifierName.trim().toLowerCase();
@@ -223,6 +242,11 @@ export class InventorySyncService {
                         missingRules.add(`Sin regla para: "${mod.modifierName}".`);
                     }
                 }
+                
+                // Agregar los items agregados de este reporte a la lista global
+                for (const item of itemsMap.values()) {
+                    externalItemsInserts.push(item);
+                }
 
                 syncResults.push({
                     branchName: sucursal.branchName,
@@ -240,8 +264,12 @@ export class InventorySyncService {
                 // Borramos los del mismo dia primero para ser idempotentes
                 const branchesIds = externalReportsInserts.map(r => r.branch_id);
                 await supabase.from('external_sales_reports').delete().eq('report_date', ventasData.fecha).in('branch_id', branchesIds);
-                await supabase.from('external_sales_reports').insert(externalReportsInserts);
-                await supabase.from('external_sales_report_items').insert(externalItemsInserts);
+                
+                const { error: rErr } = await supabase.from('external_sales_reports').insert(externalReportsInserts);
+                if (rErr) console.error('Error insertando reports:', rErr);
+                
+                const { error: iErr } = await supabase.from('external_sales_report_items').insert(externalItemsInserts);
+                if (iErr) console.error('Error insertando items:', iErr);
             }
 
             // 3.2 Ventas Reales (Financial)
