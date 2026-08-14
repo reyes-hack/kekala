@@ -81,15 +81,75 @@ export function ProtectedRoute() {
   const isAdmin = roles.includes('ADMIN');
   const isCashier = roles.includes('CASHIER');
 
-  // Hard block for Cashiers trying to access unauthorized routes (like /ventas, /configuracion)
-  const allowedCashierPaths = ['/', '/mermas', '/gastos', '/auditoria', '/cortes'];
+  // Hard block for Cashiers trying to access unauthorized routes
+  const allowedCashierPaths = ['/', '/mermas', '/gastos', '/auditoria', '/cortes', '/asistencia'];
   if (!isAdmin && isCashier && !allowedCashierPaths.includes(location.pathname)) {
     return <Navigate to="/" replace />;
   }
 
   return (
-    <AuthContext.Provider value={{ session, roles, isAdmin, isCashier }}>
-      <Outlet />
-    </AuthContext.Provider>
+    <AttendanceGuard session={session} isAdmin={isAdmin}>
+      <AuthContext.Provider value={{ session, roles, isAdmin, isCashier }}>
+        <Outlet />
+      </AuthContext.Provider>
+    </AttendanceGuard>
   );
+}
+
+// ----------------------------------------------------
+// ATTENDANCE GUARD
+// ----------------------------------------------------
+function AttendanceGuard({ session, isAdmin, children }) {
+  const [hasAttendance, setHasAttendance] = useState(false);
+  const [checking, setChecking] = useState(true);
+  const location = useLocation();
+
+  useEffect(() => {
+    // Si la ruta actual es /asistencia o si es admin, saltamos la validación
+    if (location.pathname === '/asistencia' || isAdmin) {
+      setHasAttendance(true);
+      setChecking(false);
+      return;
+    }
+
+    const checkAttendance = async () => {
+      try {
+        const todayStr = new Date().toISOString().split('T')[0];
+        const { data, error } = await supabase
+          .from('attendance_logs')
+          .select('id, check_in_at')
+          .eq('profile_id', session.user.id)
+          .eq('log_date', todayStr)
+          .single();
+        
+        // Si hay un registro con check_in_at válido, ya tomó asistencia
+        if (data && data.check_in_at) {
+          setHasAttendance(true);
+        } else {
+          setHasAttendance(false);
+        }
+      } catch (err) {
+        setHasAttendance(false);
+      } finally {
+        setChecking(false);
+      }
+    };
+
+    checkAttendance();
+  }, [session, isAdmin, location.pathname]);
+
+  if (checking) {
+    return (
+      <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-color)' }}>
+        <div style={{ color: 'var(--text-muted)' }}>Verificando asistencia...</div>
+      </div>
+    );
+  }
+
+  // Si no tiene asistencia y no estamos en la página de asistencia, redirigimos
+  if (!hasAttendance && location.pathname !== '/asistencia') {
+    return <Navigate to="/asistencia" replace />;
+  }
+
+  return children;
 }

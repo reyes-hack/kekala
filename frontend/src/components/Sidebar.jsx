@@ -10,19 +10,75 @@ import {
   ChevronLeft,
   ChevronRight,
   MapPin,
-  LogOut
+  LogOut,
+  UserCheck
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { useBranchStore } from '../store/useBranchStore';
 import { NeoSelect } from './NeoSelect';
 
+import { AuthContext } from './ProtectedRoute';
+
 export function Sidebar() {
   const { branches, activeBranch, fetchBranches, setActiveBranch } = useBranchStore();
   const [isCollapsed, setIsCollapsed] = useState(false);
+  
+  // Checkout State
+  const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
+  const [checkoutPin, setCheckoutPin] = useState('');
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [checkoutError, setCheckoutError] = useState('');
+
+  const handleCheckout = async (e) => {
+    e.preventDefault();
+    if (checkoutPin.length !== 6) {
+      setCheckoutError('NIP debe tener 6 dígitos.');
+      return;
+    }
+
+    setCheckoutLoading(true);
+    setCheckoutError('');
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('No hay sesión activa.');
+
+      const profileId = session.user.id;
+
+      // 1. Verify PIN
+      const { error: authError } = await supabase.functions.invoke('iniciar_sesion_cajero', {
+        body: { profile_id: profileId, pin: checkoutPin }
+      });
+
+      if (authError) throw new Error('NIP Incorrecto.');
+
+      // 2. Register Checkout
+      const today = new Date().toISOString().split('T')[0];
+      const { data: existingLog } = await supabase
+        .from('attendance_logs')
+        .select('id')
+        .eq('profile_id', profileId)
+        .eq('log_date', today)
+        .single();
+
+      if (existingLog) {
+        await supabase.from('attendance_logs').update({ check_out_at: new Date().toISOString() }).eq('id', existingLog.id);
+      }
+
+      // 3. Log out
+      await supabase.auth.signOut();
+      
+    } catch (err) {
+      setCheckoutError(err.message);
+      setCheckoutLoading(false);
+    }
+  };
 
   useEffect(() => {
     fetchBranches();
   }, [fetchBranches]);
+
+  // Use the AuthContext to conditionally show the Asistencia admin tab
+  const { isAdmin } = React.useContext(AuthContext);
 
   const tabs = [
     { id: 'dashboard', path: '/', label: 'Dashboard', icon: LayoutDashboard },
@@ -34,6 +90,10 @@ export function Sidebar() {
     { id: 'gastos', path: '/gastos', label: 'Compras y Gastos', icon: Banknote },
     { id: 'mermas', path: '/mermas', label: 'Mermas', icon: Trash2 },
   ];
+
+  if (isAdmin) {
+    tabs.push({ id: 'asistencia-admin', path: '/asistencia-admin', label: 'Asistencia', icon: UserCheck });
+  }
 
   const W = isCollapsed ? 72 : 260;
   return (
@@ -123,6 +183,27 @@ export function Sidebar() {
             </NavLink>
           ))}
           <div style={{ flex: 1 }} />
+          
+          <button
+            onClick={() => setIsCheckoutModalOpen(true)}
+            className="nav-item"
+            style={{
+              justifyContent: isCollapsed ? 'center' : 'flex-start',
+              padding: isCollapsed ? '10px' : '10px 14px',
+              borderRadius: 'var(--radius-sm)',
+              gap: isCollapsed ? 0 : '12px',
+              background: 'transparent',
+              border: 'none',
+              color: 'var(--text-muted)',
+              cursor: 'pointer',
+              marginTop: 'auto'
+            }}
+            title={isCollapsed ? 'Registrar Salida' : ''}
+          >
+            <UserCheck size={20} style={{ flexShrink: 0 }} />
+            {!isCollapsed && <span style={{ whiteSpace: 'nowrap', overflow: 'hidden' }}>Registrar Salida</span>}
+          </button>
+
           <button
             onClick={() => supabase.auth.signOut()}
             className="nav-item"
@@ -135,7 +216,7 @@ export function Sidebar() {
               border: 'none',
               color: 'var(--text-muted)',
               cursor: 'pointer',
-              marginTop: 'auto'
+              marginTop: '8px'
             }}
             title={isCollapsed ? 'Cerrar Sesión' : ''}
           >
@@ -169,6 +250,41 @@ export function Sidebar() {
 
       {/* Spacer para que el main-content no quede debajo del sidebar */}
       <div style={{ width: `${W}px`, flexShrink: 0, transition: 'width 0.35s cubic-bezier(0.34, 1.56, 0.64, 1)' }} />
+
+      {/* Modal de Checkout */}
+      {isCheckoutModalOpen && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)' }}>
+          <div className="neo-surface fade-in" style={{ width: '100%', maxWidth: '360px', padding: '24px', borderRadius: '16px', textAlign: 'center' }}>
+            <h3 style={{ margin: '0 0 8px 0' }}>Registrar Salida</h3>
+            <p style={{ color: 'var(--text-secondary)', marginBottom: '24px', fontSize: '0.875rem' }}>
+              Ingresa tu NIP para registrar tu salida de hoy.
+            </p>
+            <form onSubmit={handleCheckout}>
+              <input
+                type="password"
+                placeholder="Tu NIP de 6 dígitos"
+                className="neo-input"
+                maxLength={6}
+                value={checkoutPin}
+                onChange={(e) => setCheckoutPin(e.target.value.replace(/\D/g, ''))}
+                style={{ textAlign: 'center', letterSpacing: '0.5em', fontSize: '1.25rem', padding: '16px', marginBottom: '16px' }}
+                required
+              />
+              {checkoutError && (
+                <div style={{ color: '#ef4444', fontSize: '0.875rem', marginBottom: '16px' }}>{checkoutError}</div>
+              )}
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <button type="button" className="neo-btn" style={{ flex: 1 }} onClick={() => { setIsCheckoutModalOpen(false); setCheckoutPin(''); setCheckoutError(''); }}>
+                  Cancelar
+                </button>
+                <button type="submit" className="neo-btn primary" style={{ flex: 1 }} disabled={checkoutLoading}>
+                  {checkoutLoading ? 'Procesando...' : 'Confirmar'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </>
   );
 }

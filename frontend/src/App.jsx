@@ -16,6 +16,8 @@ import { Configuracion } from './pages/Configuracion';
 import { LoginNIP } from './pages/LoginNIP';
 import { LoginAdmin } from './pages/LoginAdmin';
 import { ProtectedRoute } from './components/ProtectedRoute';
+import { Asistencia } from './pages/Asistencia';
+import { AsistenciaAdmin } from './pages/AsistenciaAdmin';
 
 /* ════════════════════════════════════════════
    MÓDULO DE ENRUTAMIENTO — KEKALA ERP
@@ -30,6 +32,7 @@ function App() {
         
         {/* Rutas Protegidas */}
         <Route element={<ProtectedRoute />}>
+          <Route path="/asistencia" element={<Asistencia />} />
           <Route path="/" element={<MainLayout />}>
           <Route index element={<Dashboard />} />
           <Route path="inventario" element={<Inventory />} />
@@ -40,6 +43,7 @@ function App() {
           <Route path="gastos" element={<Purchases />} />
           <Route path="mermas" element={<Mermas />} />
           <Route path="cortes" element={<CortesDeCaja />} />
+          <Route path="asistencia-admin" element={<AsistenciaAdmin />} />
           <Route path="*" element={<Navigate to="/inventario" replace />} />
         </Route>
       </Route>
