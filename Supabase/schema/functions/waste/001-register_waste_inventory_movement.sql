@@ -3,6 +3,8 @@ BEGIN;
 CREATE OR REPLACE FUNCTION public.register_waste_inventory_movement()
 RETURNS TRIGGER
 LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
 AS $$
 DECLARE
 
