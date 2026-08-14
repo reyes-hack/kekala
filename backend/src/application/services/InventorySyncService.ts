@@ -1,4 +1,5 @@
 import { supabase } from '../../infrastructure/database/supabaseClient';
+import { v4 as uuidv4 } from 'uuid';
 
 export class InventorySyncService {
     
@@ -20,36 +21,48 @@ export class InventorySyncService {
                 throw new Error(`Error al cargar mapeos de Foodbot: ${mapError.message}`);
             }
 
-            // Crear un diccionario rápido para buscar por nombre
             const recipeMap: Record<string, { product_id: string, deduction_quantity: number }> = {};
-            mappings?.forEach(m => {
+            mappings?.forEach((m: any) => {
                 recipeMap[m.foodbot_name.trim().toLowerCase()] = {
                     product_id: m.product_id,
                     deduction_quantity: parseFloat(m.deduction_quantity)
                 };
             });
 
-            // Arreglo para guardar todas las operaciones e insertarlas en lote
-            const inventoryMovements: any[] = [];
-            const syncResults: any[] = [];
+            // IDs de Catálogos
+            const { data: saleTypeData } = await supabase.from('catalog_values').select('id').eq('code', 'SALE').single();
+            const saleMovementTypeId = saleTypeData?.id;
 
-            // 1.5 Obtener el ID del tipo de movimiento "SALE"
-            const { data: saleTypeData, error: saleTypeError } = await supabase
-                .from('catalog_values')
-                .select('id')
-                .eq('code', 'SALE')
-                .single();
+            // Obtener el SALE_STATUS = COMPLETED/APPROVED
+            const { data: saleStatusType } = await supabase.from('catalog_types').select('id').eq('code', 'SALE_STATUS').single();
+            const { data: completedStatusData } = await supabase.from('catalog_values').select('id').eq('catalog_type_id', saleStatusType?.id).in('code', ['APPROVED', 'COMPLETED']).limit(1).single();
+            const saleStatusId = completedStatusData?.id;
+
+            // Obtener PAYMENT_METHOD ids
+            const { data: pmType } = await supabase.from('catalog_types').select('id').eq('code', 'PAYMENT_METHOD').single();
+            const { data: pmData } = await supabase.from('catalog_values').select('id, code').eq('catalog_type_id', pmType?.id);
             
-            if (saleTypeError || !saleTypeData) {
-                throw new Error('No se pudo encontrar el tipo de movimiento SALE en el catálogo.');
+            // Obtener un usuario bot para "created_by"
+            const { data: profile } = await supabase.from('profiles').select('id').limit(1).single();
+            const createdBy = profile?.id;
+
+            if (!saleMovementTypeId || !saleStatusId || !createdBy) {
+                console.warn('Faltan IDs críticos en el catálogo (SALE, SALE_STATUS, PROFILE). Esto podría causar errores.');
             }
-            const saleMovementTypeId = saleTypeData.id;
+
+            // Arreglos para guardado por lotes
+            const inventoryMovements: any[] = [];
+            const salesInserts: any[] = [];
+            const paymentsInserts: any[] = [];
+            const externalReportsInserts: any[] = [];
+            const externalItemsInserts: any[] = [];
+            
+            const syncResults: any[] = [];
 
             // 2. Iterar sobre cada sucursal extraída
             for (const sucursal of ventasData.sucursales) {
                 console.log(`\n  Procesando Sucursal: ${sucursal.branchName} (${sucursal.branchCode})`);
                 
-                // Necesitamos el UUID de la organizacion y la sucursal para poder insertar en movements
                 const { data: branchData, error: branchError } = await supabase
                     .from('branches')
                     .select('id, organization_id')
@@ -61,20 +74,108 @@ export class InventorySyncService {
                     continue;
                 }
 
+                // ==========================================
+                // 2.1 CONSTRUIR EL REPORTE EXTERNO (Para gráficas)
+                // ==========================================
+                const reportId = uuidv4();
+                externalReportsInserts.push({
+                    id: reportId,
+                    organization_id: branchData.organization_id,
+                    branch_id: branchData.id,
+                    source: 'FOODBOT',
+                    report_date: ventasData.fecha,
+                    total_orders: sucursal.kpis?.ordenes || 0,
+                    total_sales: sucursal.kpis?.ventas || 0,
+                    average_ticket: sucursal.kpis?.ticketPromedio || 0,
+                    raw_data: sucursal
+                });
+
+                // ==========================================
+                // 2.2 CONSTRUIR LA VENTA FINANCIERA (Para P&L)
+                // ==========================================
+                const saleId = uuidv4();
+                const totalVentas = parseFloat(sucursal.kpis?.ventas || 0);
+                const saleNumber = `FB-${ventasData.fecha}-${sucursal.branchCode}`;
+                
+                if (totalVentas > 0) {
+                    salesInserts.push({
+                        id: saleId,
+                        organization_id: branchData.organization_id,
+                        branch_id: branchData.id,
+                        sale_number: saleNumber,
+                        created_by: createdBy,
+                        status_id: saleStatusId,
+                        subtotal: totalVentas,
+                        total_amount: totalVentas,
+                        notes: `Venta sincronizada por Foodbot - ${ventasData.fecha}`,
+                        created_at: `${ventasData.fecha}T23:59:59Z` // Asignar la fecha extraída
+                    });
+
+                    // Construir los pagos
+                    if (sucursal.metodosDePago) {
+                        for (const pm of sucursal.metodosDePago) {
+                            let methodCode = 'OTRO';
+                            const pmStr = pm.paymentMethod.toLowerCase();
+                            if (pmStr.includes('cash') || pmStr.includes('efectivo')) methodCode = 'CASH';
+                            else if (pmStr.includes('tarjeta') || pmStr.includes('terminal')) methodCode = 'CARD';
+                            else if (pmStr.includes('transfer') || pmStr.includes('spei')) methodCode = 'TRANSFER';
+                            else if (pmStr.includes('didi') || pmStr.includes('rappi') || pmStr.includes('uber')) methodCode = 'DIGITAL_WALLET';
+
+                            const pmDb = pmData?.find((p: any) => p.code === methodCode) || pmData?.find((p: any) => p.code === 'OTRO');
+                            
+                            paymentsInserts.push({
+                                organization_id: branchData.organization_id,
+                                branch_id: branchData.id,
+                                sale_id: saleId,
+                                payment_method_id: pmDb?.id,
+                                amount: pm.ventas,
+                                reference_number: `FB-${methodCode}-${ventasData.fecha}`,
+                                created_at: `${ventasData.fecha}T23:59:59Z`
+                            });
+                        }
+                    } else {
+                        // Si no hay metodos, asume todo en CASH
+                        const pmDb = pmData?.find((p: any) => p.code === 'CASH');
+                        paymentsInserts.push({
+                            organization_id: branchData.organization_id,
+                            branch_id: branchData.id,
+                            sale_id: saleId,
+                            payment_method_id: pmDb?.id,
+                            amount: totalVentas,
+                            created_at: `${ventasData.fecha}T23:59:59Z`
+                        });
+                    }
+                }
+
+                // ==========================================
+                // 2.3 PROCESAR PRODUCTOS Y MODIFICADORES (Inventario y Items)
+                // ==========================================
                 const missingRules = new Set<string>();
                 let directProductsProcessed = 0;
                 let recipeInputsProcessed = 0;
                 const deductedItems: { name: string, quantity: number }[] = [];
 
-                // --- 2.1 Procesar Productos Directos (Agua Natural, etc.) ---
-                for (const prod of sucursal.productosVendidos) {
+                for (const prod of (sucursal.productosVendidos || [])) {
+                    // Para gráficas
+                    externalItemsInserts.push({
+                        organization_id: branchData.organization_id,
+                        report_id: reportId,
+                        source_product_code: prod.productCode || 'N/A',
+                        source_product_name: prod.productName,
+                        orders_count: prod.ordenes || 0,
+                        quantity_sold: prod.cantidad || 0,
+                        total_sales: prod.ventas || 0,
+                        raw_data: { type: 'product' }
+                    });
+
+                    // Para inventario
                     const { data: productInfo } = await supabase
                         .from('products')
                         .select('id')
                         .eq('product_code', prod.productCode)
                         .single();
                     
-                    if (productInfo) {
+                    if (productInfo && saleMovementTypeId) {
                         inventoryMovements.push({
                             organization_id: branchData.organization_id,
                             branch_id: branchData.id,
@@ -88,12 +189,24 @@ export class InventorySyncService {
                     }
                 }
 
-                // --- 2.2 Procesar Modificadores (Bases, Coberturas, Rellenos) ---
-                for (const mod of sucursal.modificadoresVendidos) {
+                for (const mod of (sucursal.modificadoresVendidos || [])) {
+                    // Para gráficas
+                    externalItemsInserts.push({
+                        organization_id: branchData.organization_id,
+                        report_id: reportId,
+                        source_product_code: 'MODIFIER',
+                        source_product_name: mod.modifierName,
+                        orders_count: mod.ordenes || 0,
+                        quantity_sold: mod.cantidad || 0,
+                        total_sales: mod.ventas || 0,
+                        raw_data: { type: 'modifier' }
+                    });
+
+                    // Para inventario
                     const normalizedName = mod.modifierName.trim().toLowerCase();
                     const mapping = recipeMap[normalizedName];
                     
-                    if (mapping) {
+                    if (mapping && saleMovementTypeId) {
                         const deduction = mapping.deduction_quantity * mod.cantidad;
                         inventoryMovements.push({
                             organization_id: branchData.organization_id,
@@ -119,7 +232,35 @@ export class InventorySyncService {
                 });
             }
 
-            // 3. Insertar Movimientos en Supabase
+            // 3. Inserciones en Batch
+            
+            // 3.1 External Reports (UPSERT por si se corre 2 veces el mismo dia)
+            if (externalReportsInserts.length > 0) {
+                // Borramos los del mismo dia primero para ser idempotentes
+                const branchesIds = externalReportsInserts.map(r => r.branch_id);
+                await supabase.from('external_sales_reports').delete().eq('report_date', ventasData.fecha).in('branch_id', branchesIds);
+                await supabase.from('external_sales_reports').insert(externalReportsInserts);
+                await supabase.from('external_sales_report_items').insert(externalItemsInserts);
+            }
+
+            // 3.2 Ventas Reales (Financial)
+            if (salesInserts.length > 0) {
+                // Borramos las ventas de foodbot generadas este dia para no duplicar (Pagos primero)
+                const saleNumbers = salesInserts.map(s => s.sale_number);
+                
+                // Obtener los IDs de las ventas a eliminar
+                const { data: salesToDelete } = await supabase.from('sales').select('id').in('sale_number', saleNumbers);
+                if (salesToDelete && salesToDelete.length > 0) {
+                    const idsToDelete = salesToDelete.map(s => s.id);
+                    await supabase.from('payments').delete().in('sale_id', idsToDelete);
+                    await supabase.from('sales').delete().in('id', idsToDelete);
+                }
+                
+                await supabase.from('sales').insert(salesInserts);
+                await supabase.from('payments').insert(paymentsInserts);
+            }
+
+            // 3.3 Movimientos de Inventario
             if (inventoryMovements.length > 0) {
                 const { error: insertError } = await supabase
                     .from('inventory_movements')
@@ -128,58 +269,14 @@ export class InventorySyncService {
                 if (insertError) {
                     throw new Error(`Error al insertar movimientos: ${insertError.message}`);
                 }
-                
-                // NOTA: La base de datos tiene un TRIGGER (trg_inventory_movements_after_insert)
-                // que llama a sync_branch_inventory() automáticamente.
-                // Ya NO hacemos updateBranchInventory manualmente aquí para evitar descontar DOBLE.
-
-                console.log(`[InventorySync] Exito: ${inventoryMovements.length} movimientos de inventario registrados.`);
-                return { success: true, message: `Sincronizados ${inventoryMovements.length} movimientos de inventario.`, results: syncResults };
-            } else {
-                return { success: true, message: "No hubo movimientos a sincronizar.", results: syncResults };
             }
+
+            console.log(`[InventorySync] Exito: ${inventoryMovements.length} movimientos de inventario, ${salesInserts.length} ventas y ${externalReportsInserts.length} reportes registrados.`);
+            return { success: true, message: `Sincronizados ${inventoryMovements.length} movimientos y reportes financieros.`, results: syncResults };
 
         } catch (error: any) {
             console.error('[InventorySync] Error:', error);
             return { success: false, message: error.message };
-        }
-    }
-
-    private async updateBranchInventory(movements: any[]) {
-        // Agrupar movimientos por sucursal y producto
-        const grouped: Record<string, number> = {};
-        for(const m of movements) {
-            const key = `${m.organization_id}|${m.branch_id}|${m.product_id}`;
-            grouped[key] = (grouped[key] || 0) + m.quantity;
-        }
-
-        // Para cada grupo, buscar stock actual, sumar, y hacer upsert
-        for(const [key, qtyToAdd] of Object.entries(grouped)) {
-            const [org_id, branch_id, prod_id] = key.split('|');
-            
-            // Obtener actual
-            const { data: current } = await supabase
-                .from('branch_inventory')
-                .select('current_stock, minimum_stock')
-                .match({
-                    organization_id: org_id,
-                    branch_id: branch_id,
-                    product_id: prod_id
-                })
-                .maybeSingle();
-            
-            const newStock = (current ? current.current_stock : 0) + qtyToAdd; // qtyToAdd es negativo
-            
-            // Upsert
-            await supabase
-                .from('branch_inventory')
-                .upsert({
-                    organization_id: org_id,
-                    branch_id: branch_id,
-                    product_id: prod_id,
-                    current_stock: newStock,
-                    minimum_stock: current ? current.minimum_stock : 10
-                }, { onConflict: 'organization_id,branch_id,product_id' });
         }
     }
 }

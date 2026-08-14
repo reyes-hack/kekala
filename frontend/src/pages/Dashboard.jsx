@@ -114,47 +114,102 @@ export function Dashboard() {
 
   const selectAllBranches = () => setSelectedBranchIds(branches.map(b => b.id));
 
+  const [analyticsData, setAnalyticsData] = useState(null);
+
   const loadIncomeStatements = async () => {
     setLoading(true);
     setReportData(null);
+    setAnalyticsData(null);
     try {
-      // MODO DEMO DE EMERGENCIA
-      await new Promise(r => setTimeout(r, 800)); // Simulate network
-      const dummyData = {
-        revenues: {
-          gross_sales: 145000.50,
-          discounts: 5000.00,
-          net_sales: 140000.50
-        },
-        cogs: {
-          total: 42000.00,
-          breakdown: [
-            { concept: 'Inventario Inicial', amount: 15000 },
-            { concept: 'Compras del Periodo', amount: 35000 },
-            { concept: 'Inventario Final', amount: 8000 }
-          ]
-        },
-        gross_profit: 98000.50,
-        operating_expenses: {
-          total: 35000.00,
-          breakdown: [
-            { category: 'Nómina y Sueldos', amount: 20000 },
-            { category: 'Renta de Local', amount: 10000 },
-            { category: 'Servicios (Luz, Agua, Internet)', amount: 3000 },
-            { category: 'Marketing', amount: 2000 }
-          ]
-        },
-        operating_profit: 63000.50,
-        financial_expenses: {
-          total: 4500.00,
-          breakdown: [
-            { category: 'Comisiones Bancarias', amount: 1500 },
-            { category: 'Intereses', amount: 3000 }
-          ]
-        },
-        net_profit: 58500.50
-      };
-      setReportData(dummyData);
+      const reports = [];
+      for (const branchId of selectedBranchIds) {
+        const { data, error } = await supabase.rpc('get_income_statement', {
+          p_branch_uuid: branchId,
+          p_target_month: parseInt(selMonth, 10),
+          p_target_year: parseInt(selYear, 10)
+        });
+        if (error) {
+          console.error(`Error loading P&L for branch ${branchId}:`, error);
+        } else if (data) {
+          reports.push(data);
+        }
+      }
+      
+      const merged = mergeReports(reports);
+      setReportData(merged || {
+        revenues: { gross_sales: 0, discounts: 0, net_sales: 0 },
+        cogs: { total: 0, breakdown: [] },
+        gross_profit: 0,
+        operating_expenses: { total: 0, breakdown: [] },
+        operating_profit: 0,
+        financial_expenses: { total: 0, breakdown: [] },
+        net_profit: 0
+      });
+
+      // --- FETCH ANALYTICS ---
+      const nextMonthDate = new Date(selYear, selMonth, 1);
+      const startStr = `${selYear}-${selMonth}-01`;
+      const endStr = `${nextMonthDate.getFullYear()}-${String(nextMonthDate.getMonth() + 1).padStart(2, '0')}-01`;
+
+      const { data: reportsData } = await supabase
+        .from('external_sales_reports')
+        .select('id, total_orders, total_sales, average_ticket')
+        .in('branch_id', selectedBranchIds)
+        .gte('report_date', startStr)
+        .lt('report_date', endStr);
+
+      let tOrders = 0;
+      let tSales = 0;
+      let sumTickets = 0;
+      let countTickets = 0;
+      let topProductsMap = {};
+      let topModifiersMap = {};
+
+      if (reportsData && reportsData.length > 0) {
+        reportsData.forEach(r => {
+            tOrders += r.total_orders;
+            tSales += parseFloat(r.total_sales || 0);
+            if (r.average_ticket > 0) {
+                sumTickets += parseFloat(r.average_ticket);
+                countTickets++;
+            }
+        });
+
+        const reportIds = reportsData.map(r => r.id);
+        const { data: itemsData } = await supabase
+            .from('external_sales_report_items')
+            .select('source_product_name, quantity_sold, raw_data')
+            .in('report_id', reportIds);
+
+        if (itemsData) {
+            itemsData.forEach(item => {
+                const isMod = item.raw_data?.type === 'modifier';
+                const map = isMod ? topModifiersMap : topProductsMap;
+                const name = item.source_product_name;
+                map[name] = (map[name] || 0) + item.quantity_sold;
+            });
+        }
+      }
+      
+      const avgT = countTickets > 0 ? (sumTickets / countTickets) : 0;
+      
+      const topP = Object.entries(topProductsMap)
+        .map(([name, amount]) => ({ name, amount }))
+        .sort((a, b) => b.amount - a.amount)
+        .slice(0, 5);
+        
+      const topM = Object.entries(topModifiersMap)
+        .map(([name, value]) => ({ name, value }))
+        .sort((a, b) => b.value - a.value)
+        .slice(0, 5);
+
+      setAnalyticsData({
+          totalOrders: tOrders,
+          averageTicket: avgT,
+          topProducts: topP,
+          topModifiers: topM
+      });
+
     } catch (error) {
       console.error(error);
     } finally {
@@ -526,6 +581,12 @@ export function Dashboard() {
     amount: item.amount
   })) : [];
 
+  const analyticsPieData = analyticsData?.topModifiers?.length > 0 ? analyticsData.topModifiers : [];
+  const analyticsBarData = analyticsData?.topProducts?.length > 0 ? analyticsData.topProducts.map(item => ({
+    name: item.name.length > 15 ? item.name.substring(0, 15) + '…' : item.name,
+    amount: item.amount
+  })) : [];
+
   if (branchesLoading) return <div style={{ textAlign: 'center', padding: '40px' }}>Cargando sucursales...</div>;
   if (branches.length === 0) return (
     <div style={{ textAlign: 'center', padding: '60px', color: 'var(--text-muted)' }}>
@@ -650,7 +711,49 @@ export function Dashboard() {
             <KPICard title="Utilidad Neta" amount={reportData.net_profit} subtitle={`Margen Neto: ${fp(reportData.net_profit, reportData.revenues.net_sales)}`} icon={<TrendingUp size={22} color="#10b981" />} fc={fc} isSuccess />
           </div>
 
-          {/* Charts */}
+          {/* Analytics KPI Cards */}
+          {analyticsData && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px', marginBottom: '24px' }}>
+              <KPICard title="Órdenes Totales" amount={analyticsData.totalOrders} subtitle="En el periodo seleccionado" icon={<FileText size={22} color="#8b5cf6" />} fc={(v) => v.toString()} />
+              <KPICard title="Ticket Promedio" amount={analyticsData.averageTicket} subtitle="Gasto promedio por orden" icon={<DollarSign size={22} color="#06b6d4" />} fc={fc} />
+            </div>
+          )}
+
+          {/* Analytics Charts */}
+          {analyticsData && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginBottom: '24px' }}>
+              <div className="glass-panel" style={{ padding: '24px' }}>
+                <h3 style={{ margin: '0 0 16px 0', textAlign: 'center', color: 'var(--text-primary)' }}>Top 5 Productos Vendidos</h3>
+                <div style={{ height: '280px' }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={analyticsBarData}>
+                      <XAxis dataKey="name" fontSize={10} tickMargin={8} />
+                      <YAxis fontSize={10} />
+                      <Tooltip formatter={(v) => v} cursor={{ fill: 'rgba(255,255,255,0.4)' }} contentStyle={{ background: 'rgba(255,255,255,0.8)', borderRadius: '12px', backdropFilter: 'blur(10px)' }} />
+                      <Bar dataKey="amount" fill="#8b5cf6" radius={[6, 6, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              <div className="glass-panel" style={{ padding: '24px' }}>
+                <h3 style={{ margin: '0 0 16px 0', textAlign: 'center', color: 'var(--text-primary)' }}>Complementos Más Usados</h3>
+                <div style={{ height: '280px' }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie data={analyticsPieData} cx="50%" cy="50%" innerRadius={55} outerRadius={95} paddingAngle={4} dataKey="value">
+                        {analyticsPieData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                      </Pie>
+                      <Tooltip formatter={(v) => v} contentStyle={{ background: 'rgba(255,255,255,0.8)', borderRadius: '12px', backdropFilter: 'blur(10px)' }} />
+                      <Legend />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Financial Charts */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginBottom: '24px' }}>
             <div className="glass-panel" style={{ padding: '24px' }}>
               <h3 style={{ margin: '0 0 16px 0', textAlign: 'center', color: 'var(--text-primary)' }}>Distribución del Ingreso</h3>
