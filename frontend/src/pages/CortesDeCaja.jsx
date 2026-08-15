@@ -28,13 +28,7 @@ export function CortesDeCaja() {
     }
   }, [activeBranch]);
 
-  useEffect(() => {
-    if (activeBranch && !isAdmin && currentUser) {
-      if (mode === 'EMPLOYEE_CUT' && !reportedCash && !reportedVouchers) {
-        startEmployeeCut();
-      }
-    }
-  }, [activeBranch, isAdmin, currentUser]);
+  // The buggy useEffect referencing reportedCash was removed here as initial states are already set.
 
   const loadInitialData = async () => {
     setLoading(true);
