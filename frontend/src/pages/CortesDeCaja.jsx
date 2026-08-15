@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useContext } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { useBranchStore } from '../store/useBranchStore';
 import { 
@@ -18,6 +19,7 @@ export function CortesDeCaja() {
   const { activeBranch } = useBranchStore();
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState(null);
+  const navigate = useNavigate();
   
   // Modes: 'SELECTION', 'EMPLOYEE_CUT', 'ADMIN_FINANCES'
   const [mode, setMode] = useState(isAdmin ? 'SELECTION' : 'EMPLOYEE_CUT');
@@ -125,7 +127,11 @@ export function CortesDeCaja() {
       }
 
       alert("Corte enviado correctamente.");
-      setMode('SELECTION');
+      if (isAdmin) {
+        setMode('SELECTION');
+      } else {
+        navigate('/');
+      }
     } catch (err) {
       console.error(err);
       alert("Error al guardar el corte: " + err.message);
