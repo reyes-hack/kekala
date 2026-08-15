@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { useBranchStore } from '../store/useBranchStore';
 import { Plus, Download, Wallet, CreditCard, Building, Tags, Search, Calendar, FileText, MapPin, Hash, User, CircleDollarSign } from 'lucide-react';
@@ -9,8 +9,10 @@ import { NeoDatePicker } from './NeoDatePicker';
 import { useNeoFilters } from '../hooks/useNeoFilters';
 import { NeoAdvancedFilter } from './NeoAdvancedFilter';
 import { NeoPagination } from './NeoPagination';
+import { AuthContext } from './ProtectedRoute';
 
 export function ExpensesList() {
+  const { isAdmin, session } = useContext(AuthContext);
   const { activeBranch } = useBranchStore();
   const [expenses, setExpenses] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -40,6 +42,18 @@ export function ExpensesList() {
   });
 
   const [saving, setSaving] = useState(false);
+  const [profileName, setProfileName] = useState('Empleado');
+
+  useEffect(() => {
+    if (!isAdmin && session?.user?.id) {
+      supabase.from('profiles').select('display_name, first_name, last_name').eq('id', session.user.id).single()
+      .then(({data}) => {
+         if (data) {
+           setProfileName(data.display_name || data.first_name || 'Empleado');
+         }
+      });
+    }
+  }, [isAdmin, session]);
 
   useEffect(() => {
     if (activeBranch) {
@@ -130,8 +144,15 @@ export function ExpensesList() {
       return;
     }
 
+    if (!window.confirm("🚨 ¿Estás seguro de registrar este gasto? 🚨\n\nUna vez registrado, no podrá ser modificado ni eliminado.\n\nPor favor verifica que el monto y los datos sean correctos.")) {
+      return;
+    }
+
     try {
       setSaving(true);
+      
+      const finalResponsible = isAdmin ? formData.responsible.trim() : profileName;
+
       const { error } = await supabase
         .from('expenses')
         .insert({
@@ -143,7 +164,7 @@ export function ExpensesList() {
           amount: parseFloat(formData.amount),
           folio: formData.folio.trim() || null,
           payment_method: formData.payment_method.trim(),
-          responsible: formData.responsible.trim()
+          responsible: finalResponsible
         });
 
       if (error) throw error;
@@ -293,20 +314,21 @@ export function ExpensesList() {
               />
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <label style={{ fontSize: '0.85rem', color: 'var(--text-primary)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <User size={16} style={{color: 'var(--primary-color)'}}/> Responsable <span style={{color: 'var(--status-danger)'}}>*</span>
-              </label>
-              <NeoSelect 
-                name="responsible" 
-                value={formData.responsible} 
-                onChange={handleInputChange} 
-                options={responsibles} 
-                placeholder="Ej. ALEJANDRA" 
-                required 
-              />
-            </div>
-
+            {isAdmin && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <label style={{ fontSize: '0.85rem', color: 'var(--text-primary)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <User size={16} style={{color: 'var(--primary-color)'}}/> Responsable <span style={{color: 'var(--status-danger)'}}>*</span>
+                </label>
+                <NeoSelect 
+                  name="responsible" 
+                  value={formData.responsible} 
+                  onChange={handleInputChange} 
+                  options={responsibles} 
+                  placeholder="Ej. ALEJANDRA" 
+                  required 
+                />
+              </div>
+            )}
           </div>
 
           {/* TOTAL HIGHLIGHT ROW */}
@@ -363,7 +385,7 @@ export function ExpensesList() {
               { id: 'date_to', label: 'Hasta Fecha', type: 'date' },
               { id: 'category', label: 'Categoría', type: 'select', options: categories.map(c => ({val: c, label: c})) },
               { id: 'payment_method', label: 'Método de Pago', type: 'select', options: paymentMethods.map(p => ({val: p, label: p})) },
-              { id: 'responsible', label: 'Responsable', type: 'select', options: responsibles.map(r => ({val: r, label: r})) }
+              ...(isAdmin ? [{ id: 'responsible', label: 'Responsable', type: 'select', options: responsibles.map(r => ({val: r, label: r})) }] : [])
             ]}
           />
         </div>
@@ -391,8 +413,8 @@ export function ExpensesList() {
                   <th style={{ padding: '14px 16px', textAlign: 'left', background: 'var(--color-secondary)', color: 'white', fontWeight: 600, letterSpacing: '0.5px' }}>ESTABLECIMIENTO</th>
                   <th style={{ padding: '14px 16px', textAlign: 'center', background: 'var(--color-secondary)', color: 'white', fontWeight: 600, letterSpacing: '0.5px' }}>MONTO ($)</th>
                   <th style={{ padding: '14px 16px', textAlign: 'left', background: 'var(--color-secondary)', color: 'white', fontWeight: 600, letterSpacing: '0.5px' }}>FOLIO</th>
-                  <th style={{ padding: '14px 16px', textAlign: 'left', background: 'var(--color-secondary)', color: 'white', fontWeight: 600, letterSpacing: '0.5px' }}>MÉTODO</th>
-                  <th style={{ padding: '14px 16px', textAlign: 'left', background: 'var(--color-secondary)', color: 'white', fontWeight: 600, letterSpacing: '0.5px', borderTopRightRadius: '12px' }}>RESPONSABLE</th>
+                  <th style={{ padding: '14px 16px', textAlign: 'left', background: 'var(--color-secondary)', color: 'white', fontWeight: 600, letterSpacing: '0.5px', borderTopRightRadius: isAdmin ? '0' : '12px' }}>MÉTODO</th>
+                  {isAdmin && <th style={{ padding: '14px 16px', textAlign: 'left', background: 'var(--color-secondary)', color: 'white', fontWeight: 600, letterSpacing: '0.5px', borderTopRightRadius: '12px' }}>RESPONSABLE</th>}
                 </tr>
               </thead>
               <tbody>
@@ -407,7 +429,7 @@ export function ExpensesList() {
                     </td>
                     <td style={{ padding: '12px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>{e.folio || '-'}</td>
                     <td style={{ padding: '12px', fontSize: '0.85rem' }}>{e.payment_method}</td>
-                    <td style={{ padding: '12px', fontSize: '0.9rem', fontStyle: 'italic' }}>{e.responsible}</td>
+                    {isAdmin && <td style={{ padding: '12px', fontSize: '0.9rem', fontStyle: 'italic' }}>{e.responsible}</td>}
                   </tr>
                 ))}
               </tbody>
