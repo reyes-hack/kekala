@@ -96,6 +96,20 @@ export function CortesDeCaja() {
     
     setLoading(true);
     try {
+      // Verificar que no haya un corte de caja registrado hoy
+      const { data: existingCut } = await supabase
+        .from('cash_closures')
+        .select('id')
+        .eq('branch_id', activeBranch.id)
+        .eq('close_date', cutDate)
+        .maybeSingle();
+
+      if (existingCut) {
+        alert(`Ya se registró un corte de caja para el día de hoy (${cutDate}) en esta sucursal.`);
+        setLoading(false);
+        return;
+      }
+
       const { data: closure, error } = await supabase.from('cash_closures').insert({
         organization_id: activeBranch.organization_id,
         branch_id: activeBranch.id,
@@ -237,7 +251,7 @@ export function CortesDeCaja() {
     try {
       let query = supabase
         .from('cash_closures')
-        .select('*', { count: 'exact' })
+        .select('*, profiles:opened_by(first_name, last_name, display_name)', { count: 'exact' })
         .eq('branch_id', activeBranch.id);
 
       if (advancedFilters.month) {
@@ -545,6 +559,7 @@ export function CortesDeCaja() {
                    <thead>
                      <tr style={{ background: 'linear-gradient(90deg, rgba(37,99,235,0.05) 0%, rgba(139,92,246,0.05) 100%)', borderBottom: '2px solid var(--border-color)' }}>
                        <th style={{ padding: '16px 20px', textAlign: 'left', color: 'var(--text-secondary)', fontWeight: 700, letterSpacing: '0.5px' }}>FECHA</th>
+                       <th style={{ padding: '16px 20px', textAlign: 'left', color: 'var(--text-secondary)', fontWeight: 700, letterSpacing: '0.5px' }}>REGISTRADO POR</th>
                        <th style={{ padding: '16px 20px', textAlign: 'right', color: 'var(--text-secondary)', fontWeight: 700, letterSpacing: '0.5px' }}>VENTAS EFVO.</th>
                        <th style={{ padding: '16px 20px', textAlign: 'right', color: 'var(--text-secondary)', fontWeight: 700, letterSpacing: '0.5px' }}>VENTAS TERM.</th>
                        <th style={{ padding: '16px 20px', textAlign: 'right', color: 'var(--primary-color)', fontWeight: 800, letterSpacing: '0.5px' }}>VENTAS BRUTAS</th>
@@ -552,13 +567,14 @@ export function CortesDeCaja() {
                        <th style={{ padding: '16px 20px', textAlign: 'right', color: 'var(--text-secondary)', fontWeight: 700, letterSpacing: '0.5px' }}>TKT. PROM.</th>
                        <th style={{ padding: '16px 20px', textAlign: 'right', color: 'var(--text-secondary)', fontWeight: 700, letterSpacing: '0.5px' }}>CAJA INICIAL</th>
                        <th style={{ padding: '16px 20px', textAlign: 'right', color: 'var(--text-secondary)', fontWeight: 700, letterSpacing: '0.5px' }}>CAJA FINAL</th>
-                       <th style={{ padding: '16px 20px', textAlign: 'center', color: 'var(--text-secondary)', fontWeight: 700, letterSpacing: '0.5px' }}>RETIROS</th>
+                       <th style={{ padding: '16px 20px', textAlign: 'center', color: 'var(--text-secondary)', fontWeight: 700, letterSpacing: '0.5px' }}>DIFERENCIA</th>
                      </tr>
                    </thead>
                    <tbody>
                      {closures.map((closure, idx) => {
                        const totalVentas = closure.cash_sales + closure.pos_terminal_sales;
                        const ticketPromedio = closure.total_tickets > 0 ? (totalVentas / closure.total_tickets).toFixed(2) : 0;
+                       const diff = closure.declared_cash - (closure.opening_cash + totalVentas + (closure.cash_ins || 0) - (closure.cash_outs || 0));
                        const rowBg = idx % 2 === 0 ? 'var(--background-color)' : 'white';
                        
                        return (
@@ -568,6 +584,9 @@ export function CortesDeCaja() {
                                <Calendar size={14} style={{ color: 'var(--text-muted)' }} />
                                {closure.close_date}
                              </div>
+                           </td>
+                           <td style={{ padding: '16px 20px', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                             {closure.profiles?.display_name || closure.profiles?.first_name ? `${closure.profiles?.first_name || ''} ${closure.profiles?.last_name || ''}`.trim() || closure.profiles?.display_name : 'No Disp.'}
                            </td>
                            <td style={{ padding: '16px 20px', textAlign: 'right', color: 'var(--text-secondary)', fontWeight: 500 }}>
                              <span style={{ color: 'var(--text-muted)', marginRight: '2px' }}>$</span>{closure.cash_sales?.toLocaleString('es-MX', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
@@ -583,8 +602,8 @@ export function CortesDeCaja() {
                            <td style={{ padding: '16px 20px', textAlign: 'center', fontWeight: 600, color: 'var(--text-primary)' }}>
                              {closure.total_tickets}
                            </td>
-                           <td style={{ padding: '16px 20px', textAlign: 'right', color: 'var(--text-secondary)' }}>
-                             <span style={{ color: 'var(--text-muted)', marginRight: '2px' }}>$</span>{ticketPromedio}
+                           <td style={{ padding: '16px 20px', textAlign: 'right', color: 'var(--text-muted)' }}>
+                             ${ticketPromedio}
                            </td>
                            <td style={{ padding: '16px 20px', textAlign: 'right', color: 'var(--text-muted)' }}>
                              ${closure.opening_cash?.toLocaleString('es-MX', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
@@ -592,10 +611,8 @@ export function CortesDeCaja() {
                            <td style={{ padding: '16px 20px', textAlign: 'right', fontWeight: 600, color: 'var(--text-primary)' }}>
                              ${closure.declared_cash?.toLocaleString('es-MX', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                            </td>
-                           <td style={{ padding: '16px 20px', textAlign: 'center' }}>
-                             <button className="neo-btn" style={{ padding: '6px 12px', fontSize: '0.75rem', background: 'white', border: '1px solid var(--border-color)', boxShadow: 'var(--neo-shadow-sm)' }}>
-                               Detalles
-                             </button>
+                           <td style={{ padding: '16px 20px', textAlign: 'center', fontSize: '0.9rem', color: diff < 0 ? 'var(--status-danger)' : (diff > 0 ? '#10b981' : 'var(--text-secondary)'), fontWeight: 700 }}>
+                             {diff < 0 ? '-' : (diff > 0 ? '+' : '')}${Math.abs(diff).toFixed(2)}
                            </td>
                          </tr>
                        );
