@@ -310,7 +310,7 @@ export function Mermas() {
     const worksheet = XLSX.utils.json_to_sheet(dataToExport);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Mermas');
-    XLSX.writeFile(workbook, `Mermas_${activeBranch?.name.replace(/ /g, '_')}_${monthFilter}.xlsx`);
+    XLSX.writeFile(workbook, `Mermas_${activeBranch?.name.replace(/ /g, '_')}_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
 
   const totalMermas = mermas.reduce((sum, m) => sum + Number(m.quantity), 0);
