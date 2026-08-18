@@ -18,6 +18,7 @@ import { LoginAdmin } from './pages/LoginAdmin';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { Asistencia } from './pages/Asistencia';
 import { AsistenciaAdmin } from './pages/AsistenciaAdmin';
+import { MisHorarios } from './pages/MisHorarios';
 
 /* ════════════════════════════════════════════
    MÓDULO DE ENRUTAMIENTO — KEKALA ERP
@@ -43,6 +44,7 @@ function App() {
           <Route path="gastos" element={<Purchases />} />
           <Route path="mermas" element={<Mermas />} />
           <Route path="cortes" element={<CortesDeCaja />} />
+          <Route path="horarios" element={<MisHorarios />} />
           <Route path="asistencia-admin" element={<AsistenciaAdmin />} />
           <Route path="*" element={<Navigate to="/inventario" replace />} />
         </Route>

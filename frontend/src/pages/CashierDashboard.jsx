@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Trash2, Banknote, ShieldCheck, Calculator } from 'lucide-react';
+import { Trash2, Banknote, ShieldCheck, Calculator, CalendarClock } from 'lucide-react';
 
 export function CashierDashboard() {
   const navigate = useNavigate();
@@ -37,6 +37,14 @@ export function CashierDashboard() {
       icon: Calculator,
       color: '#1a4f99',
       path: '/cortes'
+    },
+    {
+      id: 'horarios',
+      title: 'Mis Horarios',
+      description: 'Consultar mis turnos asignados de la semana.',
+      icon: CalendarClock,
+      color: '#8b5cf6',
+      path: '/horarios'
     }
   ];
 
