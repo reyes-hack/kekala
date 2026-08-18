@@ -258,3 +258,113 @@ export const exportToExcelWithStyles = async (data, filename = 'OrdenDeCompra.xl
     alert("Hubo un error al generar el Excel.");
   }
 };
+
+export const exportMermasToExcelWithStyles = async (mermas, branchName, monthFilter) => {
+  try {
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Mermas');
+
+    let logoId = null;
+    try {
+      const response = await fetch('/logo.png');
+      const blob = await response.blob();
+      const arrayBuffer = await blob.arrayBuffer();
+      
+      logoId = workbook.addImage({
+        buffer: arrayBuffer,
+        extension: 'png',
+      });
+    } catch (e) {
+      console.warn("Could not load logo for Excel", e);
+    }
+
+    worksheet.columns = [
+      { width: 15 },
+      { width: 30 },
+      { width: 20 },
+      { width: 15 },
+      { width: 22 },
+      { width: 20 },
+      { width: 25 },
+      { width: 30 },
+    ];
+
+    const borderAll = {
+      top: { style: 'thin' }, left: { style: 'thin' },
+      bottom: { style: 'thin' }, right: { style: 'thin' }
+    };
+
+    worksheet.mergeCells('A1:H4');
+    const titleCell = worksheet.getCell('A1');
+    titleCell.value = "REPORTE DE MERMAS KEKALA";
+    titleCell.font = { size: 18, bold: true, color: { argb: 'FFD97706' } };
+    titleCell.alignment = { vertical: 'middle', horizontal: 'center' };
+    
+    if (logoId !== null) {
+      worksheet.addImage(logoId, {
+        tl: { col: 0.2, row: 0.2 },
+        ext: { width: 80, height: 80 }
+      });
+    }
+
+    worksheet.mergeCells('A5:D5');
+    worksheet.getCell('A5').value = `SUCURSAL: ${branchName}`;
+    worksheet.getCell('A5').font = { bold: true, size: 12 };
+    
+    worksheet.mergeCells('E5:H5');
+    worksheet.getCell('E5').value = `MES / PERIODO: ${monthFilter || 'Todos'}`;
+    worksheet.getCell('E5').font = { bold: true, size: 12 };
+    worksheet.getCell('E5').alignment = { horizontal: 'right' };
+
+    worksheet.addRow([]);
+
+    const headerRow = worksheet.addRow([
+      'FECHA', 'TIPO DE PALETA', 'SABOR', 'TURNO', 'CANTIDAD DAÑADA', 'LOTE', 'MOTIVO', 'NOTAS'
+    ]);
+
+    headerRow.eachCell((cell) => {
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD97706' } };
+      cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+      cell.alignment = { horizontal: 'center', vertical: 'middle' };
+      cell.border = borderAll;
+    });
+
+    let sumTotal = 0;
+
+    mermas.forEach(m => {
+      sumTotal += Number(m.quantity) || 0;
+      const row = worksheet.addRow([
+        m.date,
+        m.product_name,
+        m.flavor,
+        m.shift,
+        Number(m.quantity),
+        m.batch,
+        m.reason,
+        m.notes
+      ]);
+      row.eachCell((cell, colNumber) => {
+        cell.border = borderAll;
+        if (colNumber === 5) {
+          cell.alignment = { horizontal: 'center' };
+          cell.font = { bold: true, color: { argb: 'FFD97706' } };
+        } else {
+          cell.alignment = { vertical: 'middle' };
+        }
+      });
+    });
+
+    const totalRow = worksheet.addRow(['', '', '', 'TOTAL:', sumTotal, '', '', '']);
+    totalRow.getCell(4).font = { bold: true };
+    totalRow.getCell(4).alignment = { horizontal: 'right' };
+    totalRow.getCell(5).font = { bold: true, color: { argb: 'FFD97706' } };
+    totalRow.getCell(5).alignment = { horizontal: 'center' };
+    totalRow.getCell(5).border = borderAll;
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    saveAs(new Blob([buffer], { type: 'application/octet-stream' }), `Mermas_${branchName.replace(/ /g, '_')}_${monthFilter || new Date().toISOString().split('T')[0]}.xlsx`);
+  } catch (error) {
+    console.error("Error exportando mermas:", error);
+    alert("Hubo un error al exportar.");
+  }
+};

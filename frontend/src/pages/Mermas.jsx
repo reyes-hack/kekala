@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabaseClient';
 import { useBranchStore } from '../store/useBranchStore';
 import { Plus, Download, PackageOpen, Trash2, Calendar, FileText, Hash, AlertTriangle, Clock, Box } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import { exportMermasToExcelWithStyles } from '../utils/exportUtils';
 import { NeoSelect } from '../components/NeoSelect';
 
 import { NeoDatePicker } from '../components/NeoDatePicker';
@@ -294,23 +295,10 @@ export function Mermas() {
 
   const exportExcel = () => {
     if (mermas.length === 0) return;
-
-    const dataToExport = mermas.map(m => ({
-      'FECHA': m.date,
-      'FOLIO': m.number,
-      'TIPO DE PALETA / PRODUCTO': m.product_name,
-      'SABOR': m.flavor,
-      'TURNO': m.shift,
-      'CANTIDAD DAÑADA': m.quantity,
-      'LOTE': m.batch,
-      'MOTIVO': m.reason,
-      'NOTAS': m.notes
-    }));
-
-    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Mermas');
-    XLSX.writeFile(workbook, `Mermas_${activeBranch?.name.replace(/ /g, '_')}_${new Date().toISOString().split('T')[0]}.xlsx`);
+    const branchName = activeBranch?.name || 'Sucursal';
+    const currentMonth = advancedFilters.month || new Date().toISOString().slice(0, 7);
+    
+    exportMermasToExcelWithStyles(mermas, branchName, currentMonth);
   };
 
   const totalMermas = mermas.reduce((sum, m) => sum + Number(m.quantity), 0);
