@@ -282,7 +282,6 @@ export const exportMermasToExcelWithStyles = async (mermas, branchName, monthFil
     worksheet.columns = [
       { width: 15 },
       { width: 30 },
-      { width: 20 },
       { width: 15 },
       { width: 22 },
       { width: 20 },
@@ -295,7 +294,7 @@ export const exportMermasToExcelWithStyles = async (mermas, branchName, monthFil
       bottom: { style: 'thin' }, right: { style: 'thin' }
     };
 
-    worksheet.mergeCells('A1:H4');
+    worksheet.mergeCells('A1:G4');
     const titleCell = worksheet.getCell('A1');
     titleCell.value = "REPORTE DE MERMAS KEKALA";
     titleCell.font = { size: 18, bold: true, color: { argb: 'FFD97706' } };
@@ -312,7 +311,7 @@ export const exportMermasToExcelWithStyles = async (mermas, branchName, monthFil
     worksheet.getCell('A5').value = `SUCURSAL: ${branchName}`;
     worksheet.getCell('A5').font = { bold: true, size: 12 };
     
-    worksheet.mergeCells('E5:H5');
+    worksheet.mergeCells('E5:G5');
     worksheet.getCell('E5').value = `MES / PERIODO: ${monthFilter || 'Todos'}`;
     worksheet.getCell('E5').font = { bold: true, size: 12 };
     worksheet.getCell('E5').alignment = { horizontal: 'right' };
@@ -320,7 +319,7 @@ export const exportMermasToExcelWithStyles = async (mermas, branchName, monthFil
     worksheet.addRow([]);
 
     const headerRow = worksheet.addRow([
-      'FECHA', 'TIPO DE PALETA', 'SABOR', 'TURNO', 'CANTIDAD DAÑADA', 'LOTE', 'MOTIVO', 'NOTAS'
+      'FECHA', 'TIPO DE PRODUCTO', 'TURNO', 'CANTIDAD DAÑADA', 'LOTE', 'MOTIVO', 'NOTAS'
     ]);
 
     headerRow.eachCell((cell) => {
@@ -337,7 +336,6 @@ export const exportMermasToExcelWithStyles = async (mermas, branchName, monthFil
       const row = worksheet.addRow([
         m.date,
         m.product_name,
-        m.flavor,
         m.shift,
         Number(m.quantity),
         m.batch,
@@ -346,7 +344,7 @@ export const exportMermasToExcelWithStyles = async (mermas, branchName, monthFil
       ]);
       row.eachCell((cell, colNumber) => {
         cell.border = borderAll;
-        if (colNumber === 5) {
+        if (colNumber === 4) {
           cell.alignment = { horizontal: 'center' };
           cell.font = { bold: true, color: { argb: 'FFD97706' } };
         } else {
@@ -355,12 +353,12 @@ export const exportMermasToExcelWithStyles = async (mermas, branchName, monthFil
       });
     });
 
-    const totalRow = worksheet.addRow(['', '', '', 'TOTAL:', sumTotal, '', '', '']);
-    totalRow.getCell(4).font = { bold: true };
-    totalRow.getCell(4).alignment = { horizontal: 'right' };
-    totalRow.getCell(5).font = { bold: true, color: { argb: 'FFD97706' } };
-    totalRow.getCell(5).alignment = { horizontal: 'center' };
-    totalRow.getCell(5).border = borderAll;
+    const totalRow = worksheet.addRow(['', '', 'TOTAL:', sumTotal, '', '', '']);
+    totalRow.getCell(3).font = { bold: true };
+    totalRow.getCell(3).alignment = { horizontal: 'right' };
+    totalRow.getCell(4).font = { bold: true, color: { argb: 'FFD97706' } };
+    totalRow.getCell(4).alignment = { horizontal: 'center' };
+    totalRow.getCell(4).border = borderAll;
 
     const buffer = await workbook.xlsx.writeBuffer();
     saveAs(new Blob([buffer], { type: 'application/octet-stream' }), `Mermas_${branchName.replace(/ /g, '_')}_${monthFilter || new Date().toISOString().split('T')[0]}.xlsx`);

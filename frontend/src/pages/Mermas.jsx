@@ -368,28 +368,15 @@ export function Mermas() {
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', gridColumn: 'span 2' }}>
               <label style={{ fontSize: '0.85rem', color: 'var(--text-primary)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <PackageOpen size={16} style={{color: 'var(--primary-color)'}}/> Tipo de Paleta <span style={{color: 'var(--status-danger)'}}>*</span>
+                <PackageOpen size={16} style={{color: 'var(--primary-color)'}}/> Tipo de Producto <span style={{color: 'var(--status-danger)'}}>*</span>
               </label>
               <NeoSelect 
                 name="product" 
                 value={formData.product} 
                 onChange={handleInputChange} 
                 options={products} 
-                placeholder="Ej. ORIGINAL" 
+                placeholder="Selecciona producto" 
                 required 
-              />
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <label style={{ fontSize: '0.85rem', color: 'var(--text-primary)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Box size={16} style={{color: 'var(--primary-color)'}}/> Sabor
-              </label>
-              <NeoSelect 
-                name="flavor" 
-                value={formData.flavor} 
-                onChange={handleInputChange} 
-                options={["COCO", "YOGURT GRIEGO", "NUEZ", "FRESA", "MAMEY"]} 
-                placeholder="Ej. COCO" 
               />
             </div>
             
@@ -530,8 +517,7 @@ export function Mermas() {
               <thead>
                 <tr>
                   <th style={{ padding: '14px 16px', textAlign: 'left', background: 'var(--color-secondary)', color: 'white', fontWeight: 600, letterSpacing: '0.5px', borderTopLeftRadius: '12px' }}>FECHA</th>
-                  <th style={{ padding: '14px 16px', textAlign: 'left', background: 'var(--color-secondary)', color: 'white', fontWeight: 600, letterSpacing: '0.5px' }}>TIPO DE PALETA</th>
-                  <th style={{ padding: '14px 16px', textAlign: 'left', background: 'var(--color-secondary)', color: 'white', fontWeight: 600, letterSpacing: '0.5px' }}>SABOR</th>
+                  <th style={{ padding: '14px 16px', textAlign: 'left', background: 'var(--color-secondary)', color: 'white', fontWeight: 600, letterSpacing: '0.5px' }}>TIPO DE PRODUCTO</th>
                   <th style={{ padding: '14px 16px', textAlign: 'left', background: 'var(--color-secondary)', color: 'white', fontWeight: 600, letterSpacing: '0.5px' }}>TURNO</th>
                   <th style={{ padding: '14px 16px', textAlign: 'center', background: 'var(--color-secondary)', color: 'white', fontWeight: 600, letterSpacing: '0.5px' }}>CANTIDAD</th>
                   <th style={{ padding: '14px 16px', textAlign: 'left', background: 'var(--color-secondary)', color: 'white', fontWeight: 600, letterSpacing: '0.5px' }}>LOTE</th>
@@ -545,7 +531,6 @@ export function Mermas() {
                   <tr key={idx} style={{ background: idx % 2 === 0 ? 'white' : '#f8fafc', borderBottom: '1px solid rgba(0,0,0,0.05)' }}>
                     <td style={{ padding: '12px', fontSize: '0.9rem' }}>{new Date(m.date + 'T12:00:00').toLocaleDateString('es-MX', {day: '2-digit', month: '2-digit', year: '2-digit'})}</td>
                     <td style={{ padding: '12px', fontSize: '0.9rem', fontWeight: 600 }}>{m.product_name}</td>
-                    <td style={{ padding: '12px', fontSize: '0.9rem' }}>{m.flavor}</td>
                     <td style={{ padding: '12px', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>{m.shift}</td>
                     <td style={{ padding: '12px', fontSize: '1rem', fontWeight: 800, color: '#d97706', textAlign: 'center' }}>
                       {m.quantity}
