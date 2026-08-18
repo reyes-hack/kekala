@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { useBranchStore } from '../store/useBranchStore';
-import { Clock, Plus, Trash2, Edit2, Calendar } from 'lucide-react';
+import { Clock, Plus, Trash2, Edit2, Calendar, Download } from 'lucide-react';
 import { NeoSelect } from './NeoSelect';
 import { NeoTimePicker } from './NeoTimePicker';
+import { exportTurnosToPDF } from '../utils/exportUtils';
 
 export function TurnosTab() {
   const { branches } = useBranchStore();
@@ -164,12 +165,21 @@ export function TurnosTab() {
           <h2 style={{ fontSize: '1.25rem', fontWeight: '600', margin: 0 }}>Gestión de Turnos Semanales</h2>
           <p style={{ color: 'var(--text-secondary)', margin: '4px 0 0 0', fontSize: '0.875rem' }}>Configura los horarios y asigna a tu personal para la toma de asistencia.</p>
         </div>
-        <button 
-          className="neo-btn primary" 
-          onClick={() => { setShiftForm({ id: null, branch_id: '', name: '', start_time: '10:00', end_time: '18:00' }); setIsShiftModalOpen(true); }}
-        >
-          <Plus size={18} /> Nuevo Turno
-        </button>
+        <div style={{ display: 'flex', gap: '12px' }}>
+          <button 
+            className="neo-btn" 
+            style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#10b981', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.2)', padding: '10px 16px', fontWeight: 600 }}
+            onClick={() => exportTurnosToPDF(shifts, assignments, employees)}
+          >
+            <Download size={18} /> Exportar a PDF
+          </button>
+          <button 
+            className="neo-btn primary" 
+            onClick={() => { setShiftForm({ id: null, branch_id: '', name: '', start_time: '10:00', end_time: '18:00' }); setIsShiftModalOpen(true); }}
+          >
+            <Plus size={18} /> Nuevo Turno
+          </button>
+        </div>
       </div>
 
       {shifts.length === 0 ? (

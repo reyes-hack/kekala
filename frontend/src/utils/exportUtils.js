@@ -2,6 +2,7 @@ import * as XLSX from 'xlsx';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 import ExcelJS from 'exceljs';
+import autoTable from 'jspdf-autotable';
 import { saveAs } from 'file-saver';
 
 /**
@@ -366,5 +367,76 @@ export const exportMermasToExcelWithStyles = async (mermas, branchName, monthFil
   } catch (error) {
     console.error("Error exportando mermas:", error);
     alert("Hubo un error al exportar.");
+  }
+};
+
+export const exportTurnosToPDF = async (shifts, assignments, employees) => {
+  try {
+    const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+    
+    // Add Logo
+    try {
+      const response = await fetch('/logo.png');
+      const blob = await response.blob();
+      const reader = new FileReader();
+      const base64data = await new Promise((resolve) => {
+        reader.readAsDataURL(blob);
+        reader.onloadend = () => resolve(reader.result);
+      });
+      pdf.addImage(base64data, 'PNG', 14, 10, 24, 24);
+    } catch (e) {
+      console.warn("Could not load logo for PDF", e);
+    }
+
+    pdf.setFontSize(18);
+    pdf.setTextColor(30, 58, 138); // brand blue
+    pdf.text("ASIGNACIÓN DE TURNOS SEMANALES", 45, 20);
+    
+    pdf.setFontSize(10);
+    pdf.setTextColor(100, 100, 100);
+    pdf.text(`Generado el: ${new Date().toLocaleDateString('es-MX')} a las ${new Date().toLocaleTimeString('es-MX')}`, 45, 28);
+
+    const head = [['SUCURSAL / HORARIO', 'LUNES', 'MARTES', 'MIÉRCOLES', 'JUEVES', 'VIERNES', 'SÁBADO', 'DOMINGO']];
+    
+    const body = shifts.map(shift => {
+      const row = [`${shift.branches?.name || 'N/A'}\n${shift.name}\n${shift.start_time.substring(0,5)} - ${shift.end_time.substring(0,5)}`];
+      
+      [0, 1, 2, 3, 4, 5, 6].forEach(dayIndex => {
+        const assignment = assignments.find(a => a.shift_id === shift.id && a.day_of_week === dayIndex);
+        let empName = 'Sin Asignar';
+        if (assignment) {
+          const emp = employees.find(e => e.id === assignment.profile_id);
+          if (emp) empName = emp.name;
+        }
+        row.push(empName);
+      });
+      
+      return row;
+    });
+
+    autoTable(pdf, {
+      startY: 40,
+      head: head,
+      body: body,
+      theme: 'grid',
+      headStyles: { fillColor: [30, 58, 138], textColor: 255, halign: 'center', valign: 'middle' },
+      styles: { fontSize: 8, cellPadding: 4, valign: 'middle' },
+      columnStyles: {
+        0: { fontStyle: 'bold', halign: 'left', cellWidth: 35 },
+        1: { halign: 'center' },
+        2: { halign: 'center' },
+        3: { halign: 'center' },
+        4: { halign: 'center' },
+        5: { halign: 'center' },
+        6: { halign: 'center' },
+        7: { halign: 'center' }
+      },
+      alternateRowStyles: { fillColor: [248, 250, 252] }
+    });
+
+    pdf.save(`Turnos_Semanales_${new Date().toISOString().split('T')[0]}.pdf`);
+  } catch (error) {
+    console.error("Error exportando a PDF:", error);
+    alert("Hubo un error al exportar a PDF.");
   }
 };
