@@ -82,7 +82,7 @@ export function ProtectedRoute() {
   const isCashier = roles.includes('CASHIER');
 
   // Hard block for Cashiers trying to access unauthorized routes
-  const allowedCashierPaths = ['/', '/mermas', '/gastos', '/auditoria', '/cortes', '/asistencia'];
+  const allowedCashierPaths = ['/', '/mermas', '/gastos', '/auditoria', '/cortes', '/asistencia', '/horarios'];
   if (!isAdmin && isCashier && !allowedCashierPaths.includes(location.pathname)) {
     return <Navigate to="/" replace />;
   }
