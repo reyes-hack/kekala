@@ -104,11 +104,19 @@ export function MisHorarios() {
                     {hasShift ? (
                       <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginTop: '4px', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px' }}>
                         <Clock size={14} /> 
-                        {dayAssignments.map((a, i) => (
-                          <span key={i} style={{ background: 'rgba(30, 58, 138, 0.05)', padding: '2px 8px', borderRadius: '4px', border: '1px solid rgba(30, 58, 138, 0.1)' }}>
-                            <strong style={{color: 'var(--primary-color)'}}>{a.shifts.name}</strong> ({a.shifts.start_time.substring(0,5)} - {a.shifts.end_time.substring(0,5)}) en {a.shifts.branches?.name}
-                          </span>
-                        ))}
+                        {dayAssignments.map((a, i) => {
+                          const shiftData = Array.isArray(a.shifts) ? a.shifts[0] : a.shifts;
+                          if (!shiftData) return null;
+                          const branchName = shiftData.branches ? (Array.isArray(shiftData.branches) ? shiftData.branches[0]?.name : shiftData.branches.name) : 'Sucursal';
+                          const startTime = shiftData.start_time ? shiftData.start_time.substring(0,5) : '--:--';
+                          const endTime = shiftData.end_time ? shiftData.end_time.substring(0,5) : '--:--';
+                          
+                          return (
+                            <span key={i} style={{ background: 'rgba(30, 58, 138, 0.05)', padding: '2px 8px', borderRadius: '4px', border: '1px solid rgba(30, 58, 138, 0.1)' }}>
+                              <strong style={{color: 'var(--primary-color)'}}>{shiftData.name}</strong> ({startTime} - {endTime}) en {branchName}
+                            </span>
+                          );
+                        })}
                       </div>
                     ) : (
                       <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: '4px' }}>Descanso / Sin turno asignado</div>
