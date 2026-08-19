@@ -75,6 +75,31 @@ export class InventorySyncService {
                 }
 
                 // ==========================================
+                // 2.0.5 FETCH PREVIOUS SYNC STATE FOR DELTA CALCULATION
+                // ==========================================
+                const previousQuantities = new Map<string, number>();
+                const { data: prevReports } = await supabase
+                    .from('external_sales_reports')
+                    .select('id')
+                    .eq('report_date', ventasData.fecha)
+                    .eq('branch_id', branchData.id)
+                    .eq('source', 'FOODBOT');
+                
+                if (prevReports && prevReports.length > 0) {
+                    const prevReportIds = prevReports.map(r => r.id);
+                    const { data: prevItems } = await supabase
+                        .from('external_sales_report_items')
+                        .select('source_product_code, quantity_sold')
+                        .in('report_id', prevReportIds);
+                    
+                    if (prevItems) {
+                        prevItems.forEach(item => {
+                            previousQuantities.set(item.source_product_code, item.quantity_sold);
+                        });
+                    }
+                }
+
+                // ==========================================
                 // 2.1 CONSTRUIR EL REPORTE EXTERNO (Para gráficas)
                 // ==========================================
                 const reportId = uuidv4();
@@ -187,16 +212,21 @@ export class InventorySyncService {
                         .single();
                     
                     if (productInfo && saleMovementTypeId) {
-                        inventoryMovements.push({
-                            organization_id: branchData.organization_id,
-                            branch_id: branchData.id,
-                            product_id: productInfo.id,
-                            movement_type_id: saleMovementTypeId,
-                            quantity: -prod.cantidad,
-                            notes: `Venta Foodbot: ${ventasData.fecha}`
-                        });
-                        directProductsProcessed++;
-                        deductedItems.push({ name: prod.productName, quantity: prod.cantidad });
+                        const previousQty = previousQuantities.get(prodCode) || 0;
+                        const delta = prod.cantidad - previousQty;
+
+                        if (delta !== 0) {
+                            inventoryMovements.push({
+                                organization_id: branchData.organization_id,
+                                branch_id: branchData.id,
+                                product_id: productInfo.id,
+                                movement_type_id: saleMovementTypeId,
+                                quantity: -delta,
+                                notes: `Venta Foodbot Delta: ${ventasData.fecha}`
+                            });
+                            directProductsProcessed++;
+                            deductedItems.push({ name: prod.productName, quantity: delta });
+                        }
                     }
                 }
 
@@ -227,17 +257,22 @@ export class InventorySyncService {
                     const mapping = recipeMap[normalizedName];
                     
                     if (mapping && saleMovementTypeId) {
-                        const deduction = mapping.deduction_quantity * mod.cantidad;
-                        inventoryMovements.push({
-                            organization_id: branchData.organization_id,
-                            branch_id: branchData.id,
-                            product_id: mapping.product_id,
-                            movement_type_id: saleMovementTypeId,
-                            quantity: -deduction,
-                            notes: `Modificador Venta Foodbot: ${ventasData.fecha}`
-                        });
-                        recipeInputsProcessed += deduction;
-                        deductedItems.push({ name: mod.modifierName, quantity: deduction });
+                        const previousQty = previousQuantities.get(modCode) || 0;
+                        const delta = mod.cantidad - previousQty;
+
+                        if (delta !== 0) {
+                            const deduction = mapping.deduction_quantity * delta;
+                            inventoryMovements.push({
+                                organization_id: branchData.organization_id,
+                                branch_id: branchData.id,
+                                product_id: mapping.product_id,
+                                movement_type_id: saleMovementTypeId,
+                                quantity: -deduction,
+                                notes: `Modificador Venta Foodbot Delta: ${ventasData.fecha}`
+                            });
+                            recipeInputsProcessed += Math.abs(deduction);
+                            deductedItems.push({ name: mod.modifierName, quantity: delta });
+                        }
                     } else {
                         missingRules.add(`Sin regla para: "${mod.modifierName}".`);
                     }
