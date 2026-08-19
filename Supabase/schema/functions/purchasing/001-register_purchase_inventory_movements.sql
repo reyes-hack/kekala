@@ -54,9 +54,10 @@ BEGIN
 
     FOR v_item IN
 
-        SELECT *
-        FROM public.purchase_order_items
-        WHERE purchase_order_id = NEW.id
+        SELECT poi.*, p.items_per_box
+        FROM public.purchase_order_items poi
+        JOIN public.products p ON p.id = poi.product_id
+        WHERE poi.purchase_order_id = NEW.id
 
     LOOP
 
@@ -78,7 +79,7 @@ BEGIN
             NEW.branch_id,
             v_item.product_id,
             v_purchase_movement_type_id,
-            v_item.quantity_received,
+            v_item.quantity_received * COALESCE(v_item.items_per_box, 1),
             'PURCHASE',
             NEW.id,
             'Movimiento generado automáticamente por recepción de compra.'

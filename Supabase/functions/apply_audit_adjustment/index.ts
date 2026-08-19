@@ -40,39 +40,41 @@ serve(async (req) => {
 
     const errors = []
     for (const item of adjustments) {
-      if (item.difference === 0) continue
+      // Get real current stock at this exact moment
+      const { data: stockData, error: fetchStockErr } = await supabase
+        .from('branch_inventory')
+        .select('current_stock')
+        .eq('organization_id', organization_id)
+        .eq('branch_id', branch_id)
+        .eq('product_id', item.product_id)
+        .maybeSingle()
 
-      // 1. Insert inventory movement
+      if (fetchStockErr) {
+        console.error('Error fetching stock:', fetchStockErr)
+        errors.push({ product_id: item.product_id, step: 'fetch', error: fetchStockErr.message })
+        continue
+      }
+
+      const current_stock = stockData?.current_stock ?? 0
+      const real_difference = item.counted_stock - current_stock
+
+      if (real_difference === 0) continue
+
+      // 1. Insert inventory movement with EXACT difference to reach counted_stock
+      // The trigger will automatically update branch_inventory.current_stock
       const { error: moveErr } = await supabase.from('inventory_movements').insert({
         organization_id,
         branch_id,
         product_id: item.product_id,
         movement_type_id: '7d9cc151-6aba-4545-ac53-17362d02293e', // ADJUSTMENT
-        quantity: item.difference, // Signed difference (positive or negative)
+        quantity: real_difference, 
         reference_type: 'AUDIT',
         reference_id: session_id,
-        notes: `Ajuste por Auditoría ${session_id.split('-')[0]}`
+        notes: `Ajuste por Auditoría: Inventario real de ${current_stock} a ${item.counted_stock} (Diferencia: ${real_difference > 0 ? '+' : ''}${real_difference})`
       })
       if (moveErr) {
         console.error('Error inserting inventory movement:', moveErr)
         errors.push({ product_id: item.product_id, step: 'movement', error: moveErr.message })
-      }
-
-      // 2. Directly set the stock to the counted value (absolute, not relative)
-      // This ensures the stock is exactly what was counted regardless of trigger state
-      const { error: stockErr } = await supabase
-        .from('branch_inventory')
-        .upsert({
-          organization_id,
-          branch_id,
-          product_id: item.product_id,
-          current_stock: item.counted_stock,
-          updated_at: new Date().toISOString()
-        }, { onConflict: 'branch_id,product_id' })
-      
-      if (stockErr) {
-        console.error('Error upserting branch_inventory:', stockErr)
-        errors.push({ product_id: item.product_id, step: 'stock', error: stockErr.message })
       }
     }
 
