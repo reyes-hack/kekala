@@ -123,12 +123,11 @@ export function Auditoria() {
     setLoading(true);
 
     try {
-      // We will upload photos if any, then insert into audit_counts
+      // Build counts array (upload photos first if any)
+      const counts = [];
       for (let p of products) {
         const pid = p.product_id;
         const entry = countedProducts[pid];
-        
-        // Skip if they didn't even type a number
         if (entry.count === '') continue;
 
         let finalPhotoUrl = null;
@@ -136,8 +135,7 @@ export function Auditoria() {
           const fileExt = entry.photoFile.name.split('.').pop();
           const fileName = `audit_${currentSession.id}_${pid}.${fileExt}`;
           const filePath = `${activeBranch.id}/${fileName}`;
-          
-          const { error: uploadError } = await supabase.storage.from('evidence').upload(filePath, entry.photoFile);
+          const { error: uploadError } = await supabase.storage.from('evidence').upload(filePath, entry.photoFile, { upsert: true });
           if (!uploadError) {
             const { data: publicUrlData } = supabase.storage.from('evidence').getPublicUrl(filePath);
             finalPhotoUrl = publicUrlData.publicUrl;
@@ -145,32 +143,33 @@ export function Auditoria() {
         }
 
         const numCount = parseFloat(entry.count) || 0;
-        const diff = numCount - parseFloat(entry.expected);
-
-        await supabase.from('audit_counts').insert({
-          session_id: currentSession.id,
+        counts.push({
           product_id: pid,
-          expected_stock: entry.expected,
           counted_stock: numCount,
-          difference: diff,
+          expected_stock: null,
+          difference: null,
           evidence_photo_url: finalPhotoUrl
         });
       }
 
-      // Mark session completed
-      await supabase.from('audit_sessions').update({ status: 'COMPLETED', completed_at: new Date().toISOString() }).eq('id', currentSession.id);
-      
+      // Use edge function to bypass RLS for audit_counts insert
+      const { data: result, error: fnErr } = await supabase.functions.invoke('submit_audit_counts', {
+        body: { session_id: currentSession.id, counts }
+      });
+
+      if (fnErr) throw fnErr;
+      if (result?.error) throw new Error(result.error);
+
       alert("¡Conteo enviado con éxito! Buen trabajo.");
       if (isAdmin) {
         setMode('SELECTION');
         setCurrentSession(null);
       } else {
-        // Redirigir al inicio para evitar que se queden en un limbo sin acceso a SELECTION
         window.location.href = '/';
       }
     } catch (err) {
       console.error(err);
-      alert("Error enviando auditoría.");
+      alert("Error enviando auditoría: " + (err.message || err));
     } finally {
       setLoading(false);
     }
@@ -267,34 +266,31 @@ export function Auditoria() {
     if (!window.confirm("¿Estás seguro de aplicar este ajuste oficial al inventario?")) return;
     setLoading(true);
     try {
-      for (let item of auditDetails) {
-        if (item.difference === 0) continue; // Si está exacto, no hay ajuste
+      const adjustments = auditDetails.map(item => ({
+        product_id: item.product.id,
+        counted_stock: item.counted_stock,
+        difference: item.difference ?? 0
+      }));
 
-        // 1. Insert Inventory Movement (Adjustment)
-        const moveData = {
-          organization_id: activeBranch.organization_id,
+      const { data: result, error: fnErr } = await supabase.functions.invoke('apply_audit_adjustment', {
+        body: {
+          session_id: selectedAuditSession.id,
           branch_id: activeBranch.id,
-          product_id: item.product.id,
-          movement_type: item.difference > 0 ? 'ADJUSTMENT_IN' : 'ADJUSTMENT_OUT',
-          quantity: Math.abs(item.difference),
-          reference_type: 'AUDIT',
-          reference_id: selectedAuditSession.id,
-          notes: `Ajuste por Auditoría ${selectedAuditSession.id.split('-')[0]}`
-        };
+          organization_id: activeBranch.organization_id,
+          adjustments
+        }
+      });
 
-        const { error: moveErr } = await supabase.from('inventory_movements').insert(moveData);
-        if (moveErr) console.error("Error inserting movement:", moveErr);
+      if (fnErr) throw fnErr;
+      if (result?.error) throw new Error(result.error);
 
-        // 2. Update Branch Inventory
-        // KEKALA already has DB Triggers for movements! So inserting the movement SHOULD automatically update the stock.
-        // But let's be safe: If triggers aren't fully set up for ADJUSTMENT, we could do it manually. Let's assume Triggers handle it.
-      }
-
-      alert("Ajuste aplicado correctamente.");
+      const partialErrors = result?.errors?.length ? `\nProductos con error: ${result.errors.length}` : '';
+      alert(`Ajuste aplicado correctamente.${partialErrors}`);
       setAuditDetails([]);
       setSelectedAuditSession(null);
     } catch(err) {
       console.error(err);
+      alert("Error aplicando ajuste: " + (err.message || err));
     } finally {
       setLoading(false);
     }
