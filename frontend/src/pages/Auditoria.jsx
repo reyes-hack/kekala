@@ -242,21 +242,21 @@ export function Auditoria() {
   const viewSessionDetails = async (sessionId) => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('audit_counts')
-        .select(`
-          id, expected_stock, counted_stock, difference, evidence_photo_url,
-          product:products(id, name)
-        `)
-        .eq('session_id', sessionId);
-      
-      if (error) throw error;
-      setAuditDetails(data || []);
+      // Use edge function to bypass RLS on audit_counts for admin
+      const { data: result, error: fnErr } = await supabase.functions.invoke('get_audit_counts', {
+        body: { session_id: sessionId }
+      });
+
+      if (fnErr) throw fnErr;
+      if (result?.error) throw new Error(result.error);
+
+      setAuditDetails(result?.data || []);
       
       const sessionData = sessions.find(s => s.id === sessionId);
       setSelectedAuditSession(sessionData);
     } catch (err) {
       console.error(err);
+      alert('Error cargando detalle de auditoría: ' + (err.message || err));
     } finally {
       setLoading(false);
     }
