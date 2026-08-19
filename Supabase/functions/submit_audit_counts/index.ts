@@ -26,17 +26,38 @@ serve(async (req) => {
       throw new Error('Missing required fields: session_id or counts')
     }
 
+    // Fetch organization_id from the audit session
+    const { data: sessionData, error: sessionErr } = await supabase
+      .from('audit_sessions')
+      .select('organization_id')
+      .eq('id', session_id)
+      .single()
+
+    if (sessionErr || !sessionData) {
+      throw new Error('Audit session not found or organization_id missing: ' + (sessionErr?.message || ''))
+    }
+
+    const organization_id = sessionData.organization_id
+
     const errors = []
     for (const count of counts) {
       const { error } = await supabase.from('audit_counts').insert({
         session_id,
+        organization_id,
         product_id: count.product_id,
         counted_stock: count.counted_stock,
         expected_stock: count.expected_stock ?? null,
         difference: count.difference ?? null,
         evidence_photo_url: count.evidence_photo_url ?? null
       })
-      if (error) errors.push({ product_id: count.product_id, error: error.message })
+      if (error) {
+        console.error('Error inserting count for product:', count.product_id, error)
+        errors.push({ product_id: count.product_id, error: error.message })
+      }
+    }
+
+    if (errors.length === counts.length && counts.length > 0) {
+      throw new Error('Failed to insert all count records: ' + JSON.stringify(errors))
     }
 
     // Mark session as COMPLETED
