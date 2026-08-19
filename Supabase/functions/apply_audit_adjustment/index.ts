@@ -48,13 +48,21 @@ serve(async (req) => {
       const { error: stockErr } = await supabase
         .from('branch_inventory')
         .upsert({
+          organization_id,
           branch_id,
           product_id: item.product_id,
           current_stock: item.counted_stock,
           updated_at: new Date().toISOString()
         }, { onConflict: 'branch_id,product_id' })
       
-      if (stockErr) errors.push({ product_id: item.product_id, step: 'stock', error: stockErr.message })
+      if (stockErr) {
+        console.error('Error upserting branch_inventory:', stockErr)
+        errors.push({ product_id: item.product_id, step: 'stock', error: stockErr.message })
+      }
+    }
+
+    if (errors.length > 0) {
+      throw new Error('Errors occurred during adjustment: ' + JSON.stringify(errors))
     }
 
     // Mark audit session as adjusted
