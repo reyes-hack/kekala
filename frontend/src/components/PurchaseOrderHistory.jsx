@@ -162,13 +162,13 @@ export function PurchaseOrderHistory() {
       }
     });
 
-    // Líquidos (cantidad directa)
+    // Líquidos (cantidad directa en Litros, convertir a mL para BD)
     [...(coberturas || []), ...(rellenos || [])].forEach(item => {
       const qtyLitros = orderState[item.product.id] || 0;
       if (qtyLitros > 0) {
         inventoryUpdates.push({
           product_id: item.product.id,
-          add_amount: qtyLitros
+          add_amount: qtyLitros * 1000 // Multiplicar por 1000 para insertar mL
         });
       }
     });
@@ -178,31 +178,8 @@ export function PurchaseOrderHistory() {
 
     // Actualizar base de datos
     for (const update of inventoryUpdates) {
-      const { data: currentInv } = await supabase
-        .from('branch_inventory')
-        .select('id, current_stock')
-        .eq('branch_id', order.branch_id)
-        .eq('product_id', update.product_id)
-        .maybeSingle();
-
-      if (currentInv) {
-        await supabase
-          .from('branch_inventory')
-          .update({ current_stock: (currentInv.current_stock || 0) + update.add_amount })
-          .eq('id', currentInv.id);
-      } else {
-        await supabase
-          .from('branch_inventory')
-          .insert({
-            branch_id: order.branch_id,
-            product_id: update.product_id,
-            current_stock: update.add_amount,
-            min_stock: 0,
-            ideal_stock: 0
-          });
-      }
-      
-      // Registrar en el historial (auditoría)
+      // El trigger en inventory_movements actualizará automáticamente el branch_inventory.
+      // Por lo tanto, NO actualizamos branch_inventory manualmente aquí para evitar que se duplique el stock.
       if (orgId) {
         await supabase.from('inventory_movements').insert({
           organization_id: orgId,
