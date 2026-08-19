@@ -19,12 +19,24 @@ serve(async (req) => {
     )
 
     const body = await req.json().catch(() => ({}))
-    const { session_id, branch_id, organization_id, adjustments } = body
+    const { session_id, branch_id, adjustments } = body
     // adjustments: [{ product_id, counted_stock, difference }]
 
     if (!session_id || !branch_id || !adjustments || !Array.isArray(adjustments)) {
-      throw new Error('Missing required fields')
+      throw new Error('Missing required fields: session_id, branch_id, or adjustments')
     }
+
+    // Securely query organization_id to avoid relying on frontend sending it
+    const { data: branchData, error: branchErr } = await supabase
+      .from('branches')
+      .select('organization_id')
+      .eq('id', branch_id)
+      .single()
+
+    if (branchErr || !branchData) {
+      throw new Error('Branch not found or organization_id missing in DB: ' + (branchErr?.message || ''))
+    }
+    const organization_id = branchData.organization_id
 
     const errors = []
     for (const item of adjustments) {
