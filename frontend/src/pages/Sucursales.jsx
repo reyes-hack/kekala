@@ -352,7 +352,7 @@ export function Sucursales() {
                 </div>
 
                 {formData.foodbot_sync_enabled && (
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', paddingTop: '16px', borderTop: '1px solid rgba(0,0,0,0.05)' }}>
+                  <div className="responsive-grid-2" style={{ paddingTop: '16px', borderTop: '1px solid rgba(0,0,0,0.05)' }}>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                       <label style={{ fontSize: '0.85rem', color: 'var(--text-primary)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
                         <Clock size={16} style={{color: 'var(--text-muted)'}}/> Horario de Apertura

@@ -591,7 +591,7 @@ function NuevoProductoModal({ categories, units, onClose, onSaved }) {
             <input type="number" step="0.01" name="cost_price" value={form.cost_price} onChange={handleChange} placeholder="Ej. 15.50" />
             <span style={{fontSize: '0.8rem', color: 'var(--text-muted)'}}>Usar para productos que se compran por pieza (ej. Bases).</span>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '0.5rem' }}>
+          <div className="form-grid-2" style={{ marginTop: '0.5rem' }}>
             <div className="form-group">
               <label>Precio de Presentación (Caja/Cubeta)</label>
               <input type="number" step="0.01" name="box_price" value={form.box_price} onChange={handleChange} placeholder="Ej. 490" />
@@ -685,7 +685,7 @@ function EditProductoModal({ product, categories, units, onClose, onSaved }) {
             <input type="number" step="0.01" name="cost_price" value={form.cost_price} onChange={handleChange} placeholder="Ej. 15.50" />
             <span style={{fontSize: '0.8rem', color: 'var(--text-muted)'}}>Usar para productos que se compran por pieza (ej. Bases).</span>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '0.5rem' }}>
+          <div className="form-grid-2" style={{ marginTop: '0.5rem' }}>
             <div className="form-group">
               <label>Precio de Presentación (Caja/Cubeta)</label>
               <input type="number" step="0.01" name="box_price" value={form.box_price} onChange={handleChange} placeholder="Ej. 490" />

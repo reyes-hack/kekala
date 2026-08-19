@@ -11,7 +11,9 @@ import {
   ChevronRight,
   MapPin,
   LogOut,
-  UserCheck
+  UserCheck,
+  Menu,
+  X as XIcon
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { useBranchStore } from '../store/useBranchStore';
@@ -98,44 +100,24 @@ export function Sidebar() {
   const W = isCollapsed ? 72 : 260;
   return (
     <>
-      {/* Sidebar fijo en pantalla */}
+      {/* Sidebar */}
       <aside 
-        className="glass-panel"
+        className={`sidebar glass-panel ${isCollapsed ? 'is-collapsed' : ''}`}
         style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          width: `${W}px`,
-          height: '100vh',
-          background: 'rgba(255, 255, 255, 0.58)',
-          backdropFilter: 'saturate(200%) blur(28px)',
-          WebkitBackdropFilter: 'saturate(200%) blur(28px)',
-          borderRight: '1.5px solid rgba(255, 255, 255, 0.85)',
-          boxShadow: '8px 0 36px rgba(15, 39, 71, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.9)',
-          display: 'flex',
-          flexDirection: 'column',
-          padding: '1.5rem 0.75rem',
-          overflowY: 'auto',
-          overflowX: 'hidden',
-          transition: 'width 0.35s cubic-bezier(0.34, 1.56, 0.64, 1)',
-          zIndex: 200,
-          borderRadius: 0
+          '--sidebar-w': `${W}px`,
         }}
       >
 
         {/* Logo */}
-        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1.5rem', paddingBottom: '1rem', borderBottom: '1px solid rgba(255,255,255,0.7)' }}>
+        <div className="sidebar-logo">
           <img
             src="/logo.png"
             alt="Kekala"
-            style={{
-              height: isCollapsed ? '36px' : '110px',
-              maxWidth: '100%',
-              objectFit: 'contain',
-              transition: 'height 0.35s cubic-bezier(0.34, 1.56, 0.64, 1)',
-              filter: 'drop-shadow(0 4px 12px rgba(26, 79, 153, 0.15))'
-            }}
+            className="sidebar-logo-img"
           />
+          <button className="mobile-toggle-btn" onClick={() => setIsCollapsed(!isCollapsed)}>
+            {isCollapsed ? <Menu size={24} /> : <XIcon size={24} />}
+          </button>
         </div>
 
         {/* Branch selector */}
@@ -182,19 +164,16 @@ export function Sidebar() {
         )}
 
         {/* Nav */}
-        <nav style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1 }}>
+        <nav className="sidebar-nav">
           {tabs.map(tab => (
             <NavLink
               key={tab.id}
               to={tab.path}
-              className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
-              style={{
-                justifyContent: isCollapsed ? 'center' : 'flex-start',
-                padding: isCollapsed ? '10px' : '10px 14px',
-                borderRadius: 'var(--radius-sm)',
-                gap: isCollapsed ? 0 : '12px',
-              }}
+              className={({ isActive }) => `nav-item ${isActive ? 'active' : ''} ${isCollapsed ? 'collapsed' : ''}`}
               title={isCollapsed ? tab.label : ''}
+              onClick={() => {
+                if (window.innerWidth <= 768) setIsCollapsed(true);
+              }}
             >
               <tab.icon size={20} style={{ flexShrink: 0 }} />
               {!isCollapsed && <span style={{ whiteSpace: 'nowrap', overflow: 'hidden' }}>{tab.label}</span>}
@@ -205,18 +184,7 @@ export function Sidebar() {
           {!isAdmin && (
             <button
               onClick={() => setIsCheckoutModalOpen(true)}
-              className="nav-item"
-              style={{
-                justifyContent: isCollapsed ? 'center' : 'flex-start',
-                padding: isCollapsed ? '10px' : '10px 14px',
-                borderRadius: 'var(--radius-sm)',
-                gap: isCollapsed ? 0 : '12px',
-                background: 'transparent',
-                border: 'none',
-                color: 'var(--text-muted)',
-                cursor: 'pointer',
-                marginTop: 'auto'
-              }}
+              className={`nav-item bottom-action ${isCollapsed ? 'collapsed' : ''}`}
               title={isCollapsed ? 'Registrar Salida' : ''}
             >
               <UserCheck size={20} style={{ flexShrink: 0 }} />
@@ -226,18 +194,7 @@ export function Sidebar() {
 
           <button
             onClick={() => supabase.auth.signOut()}
-            className="nav-item"
-            style={{
-              justifyContent: isCollapsed ? 'center' : 'flex-start',
-              padding: isCollapsed ? '10px' : '10px 14px',
-              borderRadius: 'var(--radius-sm)',
-              gap: isCollapsed ? 0 : '12px',
-              background: 'transparent',
-              border: 'none',
-              color: 'var(--text-muted)',
-              cursor: 'pointer',
-              marginTop: '8px'
-            }}
+            className={`nav-item bottom-action logout-btn ${isCollapsed ? 'collapsed' : ''}`}
             title={isCollapsed ? 'Cerrar Sesión' : ''}
           >
             <LogOut size={20} style={{ flexShrink: 0 }} />
@@ -249,19 +206,9 @@ export function Sidebar() {
       {/* Botón de colapso flotante estilo cristal */}
       <button
         onClick={() => setIsCollapsed(!isCollapsed)}
-        className="glass-btn"
+        className="glass-btn sidebar-toggle-btn"
         style={{
-          position: 'fixed',
-          top: '24px',
-          left: `${W - 14}px`,
-          zIndex: 300,
-          width: '28px',
-          height: '28px',
-          padding: 0,
-          borderRadius: '50%',
-          color: '#1a4f99',
-          transition: 'left 0.35s cubic-bezier(0.34, 1.56, 0.64, 1)',
-          boxShadow: '0 4px 12px rgba(0,0,0,0.1), inset 0 1px 0 rgba(255,255,255,1)'
+          '--sidebar-w': `${W}px`,
         }}
         title={isCollapsed ? 'Expandir' : 'Contraer'}
       >
@@ -269,7 +216,7 @@ export function Sidebar() {
       </button>
 
       {/* Spacer para que el main-content no quede debajo del sidebar */}
-      <div style={{ width: `${W}px`, flexShrink: 0, transition: 'width 0.35s cubic-bezier(0.34, 1.56, 0.64, 1)' }} />
+      <div className="sidebar-spacer" style={{ width: `${W}px`, flexShrink: 0, transition: 'width 0.35s cubic-bezier(0.34, 1.56, 0.64, 1)' }} />
 
       {/* Modal de Checkout */}
       {isCheckoutModalOpen && (

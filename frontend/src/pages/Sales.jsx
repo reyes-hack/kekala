@@ -103,7 +103,7 @@ export function Sales() {
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginTop: '24px' }}>
+      <div className="responsive-grid-2" style={{ marginTop: '24px' }}>
         
         {/* Panel Izquierdo: Configuración de Scraper */}
         <div className="neo-surface" style={{ padding: '32px' }}>

@@ -721,7 +721,7 @@ export function Dashboard() {
 
           {/* Analytics Charts */}
           {analyticsData && (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginBottom: '24px' }}>
+            <div className="responsive-grid-2">
               <div className="glass-panel" style={{ padding: '24px' }}>
                 <h3 style={{ margin: '0 0 16px 0', textAlign: 'center', color: 'var(--text-primary)' }}>Top 5 Productos Vendidos</h3>
                 <div style={{ height: '280px' }}>
@@ -745,7 +745,7 @@ export function Dashboard() {
                         {analyticsPieData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                       </Pie>
                       <Tooltip formatter={(v) => v} contentStyle={{ background: 'rgba(255,255,255,0.8)', borderRadius: '12px', backdropFilter: 'blur(10px)' }} />
-                      <Legend />
+                      <Legend wrapperStyle={{ fontSize: '11px' }} />
                     </PieChart>
                   </ResponsiveContainer>
                 </div>
@@ -754,7 +754,7 @@ export function Dashboard() {
           )}
 
           {/* Financial Charts */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginBottom: '24px' }}>
+          <div className="responsive-grid-2">
             <div className="glass-panel" style={{ padding: '24px' }}>
               <h3 style={{ margin: '0 0 16px 0', textAlign: 'center', color: 'var(--text-primary)' }}>Distribución del Ingreso</h3>
               <div style={{ height: '280px' }}>
@@ -764,7 +764,7 @@ export function Dashboard() {
                       {pieData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                     </Pie>
                     <Tooltip formatter={(v) => fc(v)} contentStyle={{ background: 'rgba(255,255,255,0.8)', borderRadius: '12px', backdropFilter: 'blur(10px)' }} />
-                    <Legend />
+                    <Legend wrapperStyle={{ fontSize: '11px' }} />
                   </PieChart>
                 </ResponsiveContainer>
               </div>
