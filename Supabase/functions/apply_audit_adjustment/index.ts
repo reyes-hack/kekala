@@ -35,13 +35,16 @@ serve(async (req) => {
         organization_id,
         branch_id,
         product_id: item.product_id,
-        movement_type: item.difference > 0 ? 'ADJUSTMENT_IN' : 'ADJUSTMENT_OUT',
-        quantity: Math.abs(item.difference),
+        movement_type_id: '7d9cc151-6aba-4545-ac53-17362d02293e', // ADJUSTMENT
+        quantity: item.difference, // Signed difference (positive or negative)
         reference_type: 'AUDIT',
         reference_id: session_id,
         notes: `Ajuste por Auditoría ${session_id.split('-')[0]}`
       })
-      if (moveErr) errors.push({ product_id: item.product_id, step: 'movement', error: moveErr.message })
+      if (moveErr) {
+        console.error('Error inserting inventory movement:', moveErr)
+        errors.push({ product_id: item.product_id, step: 'movement', error: moveErr.message })
+      }
 
       // 2. Directly set the stock to the counted value (absolute, not relative)
       // This ensures the stock is exactly what was counted regardless of trigger state
