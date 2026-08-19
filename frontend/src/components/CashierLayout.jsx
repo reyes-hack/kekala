@@ -63,7 +63,7 @@ export function CashierLayout() {
       </header>
 
       {/* Main Content Area */}
-      <main style={{ flex: 1, padding: '24px', display: 'flex', flexDirection: 'column' }}>
+      <main className="cashier-main-content" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
         <Outlet />
       </main>
 

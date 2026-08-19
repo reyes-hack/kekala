@@ -269,6 +269,13 @@ a {
   z-index: 1;
 }
 
+.cashier-main-content {
+  flex: 1;
+  padding: 24px;
+  position: relative;
+  z-index: 1;
+}
+
 /* HEADER */
 .page-header {
   display: flex;
@@ -416,14 +423,15 @@ a {
 
 /* ─── INVENTORY & GENERAL TABLES ─── */
 
-.inventory-table-container, .glass-table-container {
+.inventory-table-container, .glass-table-container, .neo-table-container {
   border-radius: var(--radius-md);
-  overflow: hidden;
+  overflow-x: auto;
   border: var(--glass-border);
   box-shadow: var(--neo-shadow-flat);
   background: rgba(255, 255, 255, 0.45);
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);
+  -webkit-overflow-scrolling: touch;
 }
 
 .inventory-table {
@@ -635,6 +643,8 @@ a {
   padding: 2rem;
   width: 90%;
   max-width: 520px;
+  max-height: 90vh;
+  overflow-y: auto;
   animation: slideUp 0.35s var(--transition-smooth);
 }
 
@@ -728,6 +738,10 @@ a {
 }
 
 /* ─── RESPONSIVE MEDIA QUERIES ─── */
+.hide-on-mobile {
+  display: inline-block;
+}
+
 @media (max-width: 992px) {
   .stats-row {
     grid-template-columns: repeat(2, 1fr);
@@ -786,7 +800,7 @@ a {
     justify-content: center;
   }
 
-  .main-content {
+  .main-content, .cashier-main-content {
     margin-left: 0;
     padding: 1.5rem 1rem;
   }
@@ -815,6 +829,10 @@ a {
   .modal-content {
     width: 95%;
     padding: 1.5rem;
+  }
+
+  .hide-on-mobile {
+    display: none !important;
   }
 }
 

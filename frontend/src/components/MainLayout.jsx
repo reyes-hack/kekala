@@ -12,7 +12,7 @@ function AdminLayout() {
   return (
     <div className="app-container dashboard-liquid-bg" style={{ display: 'flex', minHeight: '100vh' }}>
       <Sidebar />
-      <main style={{ flex: 1, minWidth: 0, padding: '80px 2.5rem 2rem 2.5rem', position: 'relative', overflowX: 'hidden' }}>
+      <main className="main-content" style={{ flex: 1, minWidth: 0, position: 'relative', overflowX: 'hidden' }}>
         <div style={{ position: 'fixed', top: '16px', right: '24px', zIndex: 150, display: 'flex', gap: '12px', alignItems: 'center' }}>
           <NotificationsBell />
           <button 
