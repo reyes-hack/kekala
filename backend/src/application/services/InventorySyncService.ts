@@ -203,31 +203,6 @@ export class InventorySyncService {
                             raw_data: { type: 'product' }
                         });
                     }
-
-                    // Para inventario
-                    const { data: productInfo } = await supabase
-                        .from('products')
-                        .select('id')
-                        .eq('product_code', prod.productCode)
-                        .single();
-                    
-                    if (productInfo && saleMovementTypeId) {
-                        const previousQty = previousQuantities.get(prodCode) || 0;
-                        const delta = prod.cantidad - previousQty;
-
-                        if (delta !== 0) {
-                            inventoryMovements.push({
-                                organization_id: branchData.organization_id,
-                                branch_id: branchData.id,
-                                product_id: productInfo.id,
-                                movement_type_id: saleMovementTypeId,
-                                quantity: -delta,
-                                notes: `Venta Foodbot Delta: ${ventasData.fecha}`
-                            });
-                            directProductsProcessed++;
-                            deductedItems.push({ name: prod.productName, quantity: delta });
-                        }
-                    }
                 }
 
                 for (const mod of (sucursal.modificadoresVendidos || [])) {
@@ -251,36 +226,61 @@ export class InventorySyncService {
                             raw_data: { type: 'modifier' }
                         });
                     }
-
-                    // Para inventario
-                    const normalizedName = mod.modifierName.trim().toLowerCase();
-                    const mapping = recipeMap[normalizedName];
-                    
-                    if (mapping && saleMovementTypeId) {
-                        const previousQty = previousQuantities.get(modCode) || 0;
-                        const delta = mod.cantidad - previousQty;
-
-                        if (delta !== 0) {
-                            const deduction = mapping.deduction_quantity * delta;
-                            inventoryMovements.push({
-                                organization_id: branchData.organization_id,
-                                branch_id: branchData.id,
-                                product_id: mapping.product_id,
-                                movement_type_id: saleMovementTypeId,
-                                quantity: -deduction,
-                                notes: `Modificador Venta Foodbot Delta: ${ventasData.fecha}`
-                            });
-                            recipeInputsProcessed += Math.abs(deduction);
-                            deductedItems.push({ name: mod.modifierName, quantity: delta });
-                        }
-                    } else {
-                        missingRules.add(`Sin regla para: "${mod.modifierName}".`);
-                    }
                 }
                 
-                // Agregar los items agregados de este reporte a la lista global
+                // Calcular deltas de inventario usando el total agregado
                 for (const item of itemsMap.values()) {
                     externalItemsInserts.push(item);
+
+                    if (item.raw_data.type === 'product') {
+                        const { data: productInfo } = await supabase
+                            .from('products')
+                            .select('id')
+                            .eq('product_code', item.source_product_code)
+                            .single();
+                        
+                        if (productInfo && saleMovementTypeId) {
+                            const previousQty = previousQuantities.get(item.source_product_code) || 0;
+                            const delta = item.quantity_sold - previousQty;
+
+                            if (delta !== 0) {
+                                inventoryMovements.push({
+                                    organization_id: branchData.organization_id,
+                                    branch_id: branchData.id,
+                                    product_id: productInfo.id,
+                                    movement_type_id: saleMovementTypeId,
+                                    quantity: -delta,
+                                    notes: `Venta Foodbot Delta: ${ventasData.fecha}`
+                                });
+                                directProductsProcessed++;
+                                deductedItems.push({ name: item.source_product_name, quantity: delta });
+                            }
+                        }
+                    } else if (item.raw_data.type === 'modifier') {
+                        const normalizedName = item.source_product_name.trim().toLowerCase();
+                        const mapping = recipeMap[normalizedName];
+                        
+                        if (mapping && saleMovementTypeId) {
+                            const previousQty = previousQuantities.get(item.source_product_code) || 0;
+                            const delta = item.quantity_sold - previousQty;
+
+                            if (delta !== 0) {
+                                const deduction = mapping.deduction_quantity * delta;
+                                inventoryMovements.push({
+                                    organization_id: branchData.organization_id,
+                                    branch_id: branchData.id,
+                                    product_id: mapping.product_id,
+                                    movement_type_id: saleMovementTypeId,
+                                    quantity: -deduction,
+                                    notes: `Modificador Venta Foodbot Delta: ${ventasData.fecha}`
+                                });
+                                recipeInputsProcessed += Math.abs(deduction);
+                                deductedItems.push({ name: item.source_product_name, quantity: delta });
+                            }
+                        } else {
+                            missingRules.add(`Sin regla para: "${item.source_product_name}".`);
+                        }
+                    }
                 }
 
                 syncResults.push({

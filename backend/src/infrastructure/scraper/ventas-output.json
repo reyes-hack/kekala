@@ -310,9 +310,9 @@
       "branchCode": "ELDORADO_VER",
       "branchName": "El Dorado Veracruz",
       "kpis": {
-        "ordenes": 50,
-        "ventas": 5380,
-        "ticketPromedio": 107.6
+        "ordenes": 52,
+        "ventas": 5540,
+        "ticketPromedio": 106.54
       },
       "productosVendidos": [
         {
@@ -346,9 +346,9 @@
         {
           "productCode": "ESPECIAL_ORIGINAL",
           "productName": "Especial Original",
-          "ordenes": 31,
-          "cantidad": 40,
-          "ventas": 3245
+          "ordenes": 33,
+          "cantidad": 42,
+          "ventas": 3405
         },
         {
           "productCode": "LECHE_CRISPI",
@@ -413,8 +413,8 @@
         },
         {
           "modifierName": "Base Original Fresa",
-          "ordenes": 7,
-          "cantidad": 7,
+          "ordenes": 8,
+          "cantidad": 8,
           "ventas": 0
         },
         {
@@ -431,8 +431,8 @@
         },
         {
           "modifierName": "Base Original Yogurth Griego",
-          "ordenes": 8,
-          "cantidad": 10,
+          "ordenes": 9,
+          "cantidad": 11,
           "ventas": 0
         },
         {
@@ -473,8 +473,8 @@
         },
         {
           "modifierName": "Cobertura Crocante de Avellanas",
-          "ordenes": 9,
-          "cantidad": 10,
+          "ordenes": 11,
+          "cantidad": 12,
           "ventas": 0
         },
         {
@@ -497,8 +497,8 @@
         },
         {
           "modifierName": "Relleno Buono",
-          "ordenes": 8,
-          "cantidad": 11,
+          "ordenes": 10,
+          "cantidad": 13,
           "ventas": 0
         },
         {
@@ -542,14 +542,14 @@
         {
           "paymentMethod": "Cash",
           "channel": "POS",
-          "ordenes": 37,
-          "ventas": 3755
+          "ordenes": 38,
+          "ventas": 3835
         },
         {
           "paymentMethod": "Terminal-Manual",
           "channel": "POS",
-          "ordenes": 13,
-          "ventas": 1625
+          "ordenes": 14,
+          "ventas": 1705
         }
       ]
     }
