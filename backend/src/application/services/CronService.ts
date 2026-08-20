@@ -46,9 +46,14 @@ export class CronService {
                 return;
             }
 
-            // 2. Get current time in local timezone (assuming Mexico City for this system)
+            // 2. Get current time in local timezone (America/Mexico_City)
             const now = new Date();
-            const currentHour = now.getHours();
+            const formatter = new Intl.DateTimeFormat('en-US', {
+                timeZone: 'America/Mexico_City',
+                hour: 'numeric',
+                hour12: false
+            });
+            const currentHour = parseInt(formatter.format(now));
             
             // 3. Get branches and their schedules
             const { data: branches, error } = await supabase
@@ -61,7 +66,10 @@ export class CronService {
                 return;
             }
 
-            const todayStr = now.toISOString().split('T')[0];
+            const dateFormatter = new Intl.DateTimeFormat('en-CA', { // 'en-CA' outputs YYYY-MM-DD
+                timeZone: 'America/Mexico_City'
+            });
+            const todayStr = dateFormatter.format(now);
             let shouldRunScraper = false;
 
             // We determine if we need to run the scraper by checking if AT LEAST ONE branch needs syncing right now.
@@ -122,11 +130,18 @@ export class CronService {
     private async checkAbsences() {
         try {
             const now = new Date();
-            let dayOfWeek = now.getDay() - 1;
-            if (dayOfWeek === -1) dayOfWeek = 6; 
+            
+            // Usar timezone de Mexico para asistencia
+            const timeFormatter = new Intl.DateTimeFormat('en-GB', { timeZone: 'America/Mexico_City', timeStyle: 'medium' });
+            const dateFormatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Mexico_City' });
+            
+            // Obtener el día de la semana (0 = Lunes, 6 = Domingo) en la zona local
+            const localDateStr = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Mexico_City', weekday: 'short' }).format(now);
+            const daysMap: Record<string, number> = { 'Mon': 0, 'Tue': 1, 'Wed': 2, 'Thu': 3, 'Fri': 4, 'Sat': 5, 'Sun': 6 };
+            const dayOfWeek = daysMap[localDateStr];
 
-            const currentTime = now.toTimeString().split(' ')[0]; 
-            const todayStr = now.toISOString().split('T')[0];
+            const currentTime = timeFormatter.format(now); // "HH:MM:SS"
+            const todayStr = dateFormatter.format(now); // "YYYY-MM-DD"
 
             const { data: pastAssignments, error } = await supabase
                 .from('shift_assignments')
