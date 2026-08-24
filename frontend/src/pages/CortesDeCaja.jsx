@@ -112,6 +112,16 @@ export function CortesDeCaja() {
     
     setLoading(true);
     try {
+      // Validar estrictamente la sucursal del empleado contra la activa en Zustand
+      const userBranchId = currentUser?.app_metadata?.branch_id;
+      const isEmployee = currentUser?.app_metadata?.roles?.includes('CASHIER') || !isAdmin;
+      
+      if (isEmployee && userBranchId && activeBranch.id !== userBranchId) {
+        alert("¡Error Crítico! Estás intentando registrar un corte para una sucursal distinta a la tuya. Por favor, refresca la página e inicia sesión nuevamente.");
+        setLoading(false);
+        return;
+      }
+
       // Verificar que no haya un corte de caja registrado hoy
       const { data: existingCut } = await supabase
         .from('cash_closures')
@@ -637,7 +647,8 @@ export function CortesDeCaja() {
                      {closures.map((closure, idx) => {
                        const totalVentas = closure.cash_sales + closure.pos_terminal_sales;
                        const ticketPromedio = closure.total_tickets > 0 ? (totalVentas / closure.total_tickets).toFixed(2) : 0;
-                       const diff = closure.declared_cash - (closure.opening_cash + totalVentas + (closure.cash_ins || 0) - (closure.cash_outs || 0));
+                       const expectedCash = closure.opening_cash + closure.cash_sales + (closure.cash_ins || 0) - (closure.cash_outs || 0);
+                       const diff = closure.declared_cash - expectedCash;
                        const rowBg = idx % 2 === 0 ? 'var(--background-color)' : 'white';
                        
                        return (

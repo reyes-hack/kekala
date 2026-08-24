@@ -68,6 +68,7 @@ export function Sidebar() {
 
       // 3. Log out
       await supabase.auth.signOut();
+      setActiveBranch(null);
       
     } catch (err) {
       setCheckoutError(err.message);
@@ -193,7 +194,10 @@ export function Sidebar() {
           )}
 
           <button
-            onClick={() => supabase.auth.signOut()}
+            onClick={async () => {
+              await supabase.auth.signOut();
+              setActiveBranch(null);
+            }}
             className={`nav-item bottom-action logout-btn ${isCollapsed ? 'collapsed' : ''}`}
             title={isCollapsed ? 'Cerrar Sesión' : ''}
           >
