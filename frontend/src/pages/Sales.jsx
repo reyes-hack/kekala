@@ -1,12 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { RefreshCcw, CheckCircle2, AlertCircle, History, Settings, Power } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
+import { NeoPagination } from '../components/NeoPagination';
 
 export function Sales() {
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState(null); // { type: 'success' | 'error', message: string, results: any[] }
   const [syncDate, setSyncDate] = useState(new Date().toLocaleDateString('en-CA')); // Fecha de hoy YYYY-MM-DD local
   const [history, setHistory] = useState([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const ITEMS_PER_PAGE = 10;
+  
   const [globalEnabled, setGlobalEnabled] = useState(true);
   const [branchesConfig, setBranchesConfig] = useState([]);
   const [loadingConfig, setLoadingConfig] = useState(true);
@@ -14,6 +19,32 @@ export function Sales() {
   useEffect(() => {
     fetchConfig();
   }, []);
+
+  useEffect(() => {
+    fetchHistory(currentPage);
+  }, [currentPage]);
+
+  const fetchHistory = async (page) => {
+    try {
+      const from = (page - 1) * ITEMS_PER_PAGE;
+      const to = from + ITEMS_PER_PAGE - 1;
+      
+      const { data, count } = await supabase
+        .from('sync_history')
+        .select('*', { count: 'exact' })
+        .order('created_at', { ascending: false })
+        .range(from, to);
+        
+      if (data) {
+        setHistory(data);
+        if (count) {
+          setTotalPages(Math.ceil(count / ITEMS_PER_PAGE));
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching history:', error);
+    }
+  };
 
   const fetchConfig = async () => {
     try {
@@ -32,14 +63,6 @@ export function Sales() {
         .select('id, name, opening_time, closing_time, foodbot_sync_enabled')
         .order('name');
       if (branchesData) setBranchesConfig(branchesData);
-
-      // Fetch history
-      const { data: historyData } = await supabase
-        .from('sync_history')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(10);
-      if (historyData) setHistory(historyData);
     } catch (error) {
       console.error('Error fetching config:', error);
     } finally {
@@ -81,7 +104,7 @@ export function Sales() {
       
       if (data.success) {
         setStatus({ type: 'success', message: data.message, results: data.results });
-        fetchConfig(); // Refresh history
+        fetchHistory(currentPage); // Refresh history
       } else {
         setStatus({ type: 'error', message: data.message });
       }
@@ -222,6 +245,16 @@ export function Sales() {
                 ))
               )}
             </div>
+            
+            {totalPages > 1 && (
+              <div style={{ marginTop: '20px', display: 'flex', justifyContent: 'center' }}>
+                <NeoPagination 
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  onPageChange={setCurrentPage}
+                />
+              </div>
+            )}
           </div>
         </div>
       </div>
