@@ -5,7 +5,7 @@ import { useBranchStore } from '../store/useBranchStore';
 import { 
   Calculator, FileText, CheckCircle2, ShieldAlert, AlertCircle, 
   Settings, DollarSign, CreditCard, ArrowRightLeft, Plus, X, Trash2,
-  ArrowDownLeft, ArrowUpRight, Banknote, MonitorSmartphone, Calendar
+  ArrowDownLeft, ArrowUpRight, Banknote, MonitorSmartphone, Calendar, Info
 } from 'lucide-react';
 import { useNeoFilters } from '../hooks/useNeoFilters';
 import { NeoAdvancedFilter } from '../components/NeoAdvancedFilter';
@@ -616,6 +616,18 @@ export function CortesDeCaja() {
                 { id: 'branch_id', label: 'Sucursal', type: 'select', options: [{val: '', label: 'Todas'}, ...Object.entries(branchesMap).map(([id, name]) => ({val: id, label: name}))] }
               ]}
             />
+          </div>
+
+          <div style={{ marginBottom: '24px', padding: '16px 20px', background: 'rgba(59, 130, 246, 0.08)', borderRadius: '16px', border: '1px solid rgba(59, 130, 246, 0.2)', display: 'flex', alignItems: 'flex-start', gap: '16px' }}>
+             <Info size={24} style={{ color: '#3b82f6', marginTop: '2px', flexShrink: 0 }} />
+             <div>
+                <strong style={{ color: '#1d4ed8', fontSize: '1rem', display: 'block', marginBottom: '4px' }}>¿Cómo se calcula la Diferencia?</strong>
+                <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: '1.5' }}>
+                  El sistema compara el <strong>Efectivo Declarado</strong> (Caja Final física) contra el efectivo que se espera tener:<br/>
+                  <code style={{ background: 'rgba(59,130,246,0.1)', padding: '2px 6px', borderRadius: '4px', fontSize: '0.85rem' }}>Caja Inicial + Ventas en Efectivo + Entradas Extra - Salidas Extra</code><br/>
+                  <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>* Las Ventas por Terminal Bancaria no afectan la diferencia ya que no ingresan billetes al cajón físico.</span>
+                </p>
+             </div>
           </div>
 
           {closures.length === 0 ? (
