@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef, useContext } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { useBranchStore } from '../store/useBranchStore';
-import { Download, FileText, TrendingUp, AlertTriangle, Activity, ChevronDown, ChevronRight, DollarSign, Check } from 'lucide-react';
+import { Download, FileText, TrendingUp, AlertTriangle, Activity, ChevronDown, ChevronRight, DollarSign, Check, Info } from 'lucide-react';
 import { NeoSelect } from '../components/NeoSelect';
+import { NeoDatePicker } from '../components/NeoDatePicker';
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
@@ -67,23 +68,12 @@ export function Dashboard() {
     return <CashierDashboard />;
   }
 
-  const MONTHS = [
-    { value: '01', label: 'Enero' }, { value: '02', label: 'Febrero' },
-    { value: '03', label: 'Marzo' }, { value: '04', label: 'Abril' },
-    { value: '05', label: 'Mayo' }, { value: '06', label: 'Junio' },
-    { value: '07', label: 'Julio' }, { value: '08', label: 'Agosto' },
-    { value: '09', label: 'Septiembre' }, { value: '10', label: 'Octubre' },
-    { value: '11', label: 'Noviembre' }, { value: '12', label: 'Diciembre' }
-  ];
-
-  const YEARS = Array.from({ length: 5 }, (_, i) => {
-    const y = new Date().getFullYear() - 2 + i;
-    return { value: String(y), label: String(y) };
+  const [startDate, setStartDate] = useState(() => {
+    const d = new Date();
+    d.setDate(1);
+    return d.toISOString().split('T')[0];
   });
-
-  const [selMonth, setSelMonth] = useState(() => String(new Date().getMonth() + 1).padStart(2, '0'));
-  const [selYear, setSelYear] = useState(() => String(new Date().getFullYear()));
-  const targetMonth = `${selYear}-${selMonth}`;
+  const [endDate, setEndDate] = useState(() => new Date().toISOString().split('T')[0]);
 
   const [expandedSections, setExpandedSections] = useState({ cogs: true, opex: true, financial: true });
   const toggleSection = (s) => setExpandedSections(prev => ({ ...prev, [s]: !prev[s] }));
@@ -97,7 +87,7 @@ export function Dashboard() {
 
   useEffect(() => {
     if (selectedBranchIds.length > 0) loadIncomeStatements();
-  }, [selectedBranchIds, targetMonth]);
+  }, [selectedBranchIds, startDate, endDate]);
 
   // Click outside to close branch dropdown
   useEffect(() => {
@@ -123,10 +113,11 @@ export function Dashboard() {
     try {
       const reports = [];
       for (const branchId of selectedBranchIds) {
+        const d = new Date(startDate + 'T12:00:00');
         const { data, error } = await supabase.rpc('get_income_statement', {
           p_branch_uuid: branchId,
-          p_target_month: parseInt(selMonth, 10),
-          p_target_year: parseInt(selYear, 10)
+          p_target_month: d.getMonth() + 1,
+          p_target_year: d.getFullYear()
         });
         if (error) {
           console.error(`Error loading P&L for branch ${branchId}:`, error);
@@ -147,15 +138,15 @@ export function Dashboard() {
       });
 
       // --- FETCH ANALYTICS ---
-      const nextMonthDate = new Date(selYear, selMonth, 1);
-      const startStr = `${selYear}-${selMonth}-01`;
-      const endStr = `${nextMonthDate.getFullYear()}-${String(nextMonthDate.getMonth() + 1).padStart(2, '0')}-01`;
+      const endD = new Date(endDate + 'T12:00:00');
+      endD.setDate(endD.getDate() + 1);
+      const endStr = endD.toISOString().split('T')[0];
 
       const { data: reportsData } = await supabase
         .from('external_sales_reports')
         .select('id, total_orders, total_sales, average_ticket')
         .in('branch_id', selectedBranchIds)
-        .gte('report_date', startStr)
+        .gte('report_date', startDate)
         .lt('report_date', endStr);
 
       let tOrders = 0;
@@ -220,7 +211,7 @@ export function Dashboard() {
   const fc = (val) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(val || 0);
   const fp = (val, total) => total ? ((val / total) * 100).toFixed(1) + '%' : '—';
   const selectedBranchNames = branches.filter(b => selectedBranchIds.includes(b.id)).map(b => b.name).join(', ');
-  const monthLabel = MONTHS.find(m => m.value === selMonth)?.label || selMonth;
+  const dateRangeLabel = `${startDate} al ${endDate}`;
 
   // ----------------------------------------------------------------
   // EXCEL EXPORT (ExcelJS — PREMIUM)
@@ -286,7 +277,7 @@ export function Dashboard() {
     // Row 3 — Report title
     ws.mergeCells('A3:D3');
     const repCell = ws.getCell('A3');
-    repCell.value = `ESTADO DE RESULTADOS — ${monthLabel.toUpperCase()} ${selYear}`;
+    repCell.value = `ESTADO DE RESULTADOS — ${dateRangeLabel}`;
     repCell.font = { bold: true, size: 11, color: { argb: C.BLUE } };
     repCell.alignment = { horizontal: 'center', vertical: 'middle' };
     ws.getRow(3).height = 22;
@@ -472,7 +463,7 @@ export function Dashboard() {
 
     const buffer = await wb.xlsx.writeBuffer();
     const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-    saveAs(blob, `Estado_Resultados_${selectedBranchNames}_${selMonth}-${selYear}.xlsx`);
+    saveAs(blob, `Estado_Resultados_${selectedBranchNames}_${startDate}_${endDate}.xlsx`);
   };
 
   // ----------------------------------------------------------------
@@ -494,7 +485,7 @@ export function Dashboard() {
     doc.setFont('helvetica', 'normal');
     doc.text(selectedBranchNames, 14, 22);
     doc.setFontSize(9);
-    doc.text(`Estado de Resultados — ${monthLabel} ${selYear}`, 14, 29);
+    doc.text(`Estado de Resultados — ${dateRangeLabel}`, 14, 29);
     doc.text(`Generado: ${new Date().toLocaleDateString('es-MX')}`, 14, 35);
 
     const rows = [];
@@ -565,7 +556,7 @@ export function Dashboard() {
     doc.setTextColor(140, 155, 181);
     doc.text('Documento generado por Kekala ERP  •  Datos basados en registros del sistema  •  Confidencial', 105, finalY + 9, { align: 'center' });
 
-    doc.save(`Estado_Resultados_${selectedBranchNames}_${selMonth}-${selYear}.pdf`);
+    doc.save(`Estado_Resultados_${selectedBranchNames}_${startDate}_${endDate}.pdf`);
   };
 
   // Chart data
@@ -665,14 +656,23 @@ export function Dashboard() {
             )}
           </div>
 
-          {/* Month / Year */}
-          <div style={{ display: 'flex', gap: '8px', width: '290px' }}>
-            <div style={{ flex: 1 }}>
-              <NeoSelect name="month" value={selMonth} onChange={e => setSelMonth(e.target.value)} options={MONTHS} placeholder="Mes" />
+          {/* Date Range */}
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <div style={{ width: '140px' }}>
+              <NeoDatePicker name="startDate" value={startDate} onChange={e => setStartDate(e.target.value)} placeholder="Inicio" />
             </div>
-            <div style={{ width: '100px' }}>
-              <NeoSelect name="year" value={selYear} onChange={e => setSelYear(e.target.value)} options={YEARS} placeholder="Año" />
+            <span style={{ color: 'var(--text-muted)' }}>-</span>
+            <div style={{ width: '140px' }}>
+              <NeoDatePicker name="endDate" value={endDate} onChange={e => setEndDate(e.target.value)} placeholder="Fin" />
             </div>
+            <button 
+              className="glass-btn" 
+              style={{ padding: '8px', borderRadius: '50%', color: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px' }}
+              title="Información sobre filtros de fecha"
+              onClick={() => alert("INFO DE FILTROS:\n\n1. Rango Flexible: Puedes seleccionar desde 1 día hasta varios meses.\n2. Analítica: Las órdenes y complementos se calcularán exactamente en este rango.\n3. P&L (Estado de Resultados): Actualmente espera una actualización del backend para soportar días exactos; por ahora usará el mes de la 'Fecha Inicial'.")}
+            >
+              <Info size={18} />
+            </button>
           </div>
 
           <button onClick={exportToPDF} className="glass-btn" style={{ gap: '8px', color: '#ef4444' }}>
@@ -789,7 +789,7 @@ export function Dashboard() {
           <div className="glass-panel" style={{ overflow: 'hidden' }}>
             <div style={{ background: 'var(--accent-gradient)', color: 'white', padding: '16px 24px', textAlign: 'center', boxShadow: 'var(--accent-glow)' }}>
               <h2 style={{ margin: 0, fontSize: '1.1rem', letterSpacing: '0.05em' }}>
-                ESTADO DE RESULTADOS — {monthLabel.toUpperCase()} {selYear}
+                ESTADO DE RESULTADOS — {dateRangeLabel}
               </h2>
             </div>
 
