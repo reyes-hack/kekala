@@ -98,6 +98,8 @@ export function Sidebar() {
     tabs.push({ id: 'asistencia', path: '/asistencia', label: 'Mi Asistencia', icon: UserCheck });
   } else if (isAdmin) {
     tabs.push({ id: 'asistencia-admin', path: '/asistencia-admin', label: 'Asistencia', icon: UserCheck });
+    tabs.push({ id: 'finanzas', path: '/finanzas', label: 'Config. Finanzas', icon: Banknote });
+    tabs.push({ id: 'configuracion', path: '/configuracion', label: 'Sucursales', icon: LayoutDashboard });
   }
 
   const W = isCollapsed ? 72 : 260;

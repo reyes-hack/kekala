@@ -8,8 +8,6 @@ CREATE TABLE IF NOT EXISTS public.branch_fixed_costs (
 
     branch_id UUID NOT NULL,
 
-    month_year DATE NOT NULL,
-
     category TEXT NOT NULL,
 
     concept TEXT NOT NULL,
@@ -70,14 +68,8 @@ ON public.branch_fixed_costs(organization_id);
 CREATE INDEX IF NOT EXISTS idx_branch_fixed_costs_branch
 ON public.branch_fixed_costs(branch_id);
 
-CREATE INDEX IF NOT EXISTS idx_branch_fixed_costs_month
-ON public.branch_fixed_costs(month_year);
-
 CREATE INDEX IF NOT EXISTS idx_branch_fixed_costs_category
 ON public.branch_fixed_costs(category);
-
-CREATE INDEX IF NOT EXISTS idx_branch_fixed_costs_branch_month
-ON public.branch_fixed_costs(branch_id, month_year);
 
 ------------------------------------------------------------
 -- Trigger updated_at
@@ -104,9 +96,6 @@ COMMENT ON COLUMN public.branch_fixed_costs.organization_id IS
 
 COMMENT ON COLUMN public.branch_fixed_costs.branch_id IS
 'Sucursal a la que pertenece el costo fijo.';
-
-COMMENT ON COLUMN public.branch_fixed_costs.month_year IS
-'Mes correspondiente al costo fijo.';
 
 COMMENT ON COLUMN public.branch_fixed_costs.category IS
 'Categoría del costo fijo.';
