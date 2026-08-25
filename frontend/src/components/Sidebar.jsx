@@ -81,7 +81,7 @@ export function Sidebar() {
   }, [fetchBranches]);
 
   // Use the AuthContext to conditionally show the Asistencia admin tab
-  const { isAdmin } = React.useContext(AuthContext);
+  const { isAdmin, isCashier } = React.useContext(AuthContext);
 
   const tabs = [
     { id: 'dashboard', path: '/', label: 'Dashboard', icon: LayoutDashboard },
@@ -94,7 +94,9 @@ export function Sidebar() {
     { id: 'mermas', path: '/mermas', label: 'Mermas', icon: Trash2 },
   ];
 
-  if (isAdmin) {
+  if (isCashier && !isAdmin) {
+    tabs.push({ id: 'asistencia', path: '/asistencia', label: 'Mi Asistencia', icon: UserCheck });
+  } else if (isAdmin) {
     tabs.push({ id: 'asistencia-admin', path: '/asistencia-admin', label: 'Asistencia', icon: UserCheck });
   }
 
