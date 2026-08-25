@@ -25,7 +25,8 @@ export function Sucursales() {
     is_active: true,
     opening_time: '10:00',
     closing_time: '22:00',
-    foodbot_sync_enabled: true
+    foodbot_sync_enabled: true,
+    card_commission_percentage: 2.5
   });
 
   useEffect(() => {
@@ -37,7 +38,7 @@ export function Sucursales() {
     try {
       const { data, error } = await supabase
         .from('branches')
-        .select('*')
+        .select('*, branch_settings(card_commission_percentage)')
         .order('is_active', { ascending: false })
         .order('name');
       
@@ -67,6 +68,17 @@ export function Sucursales() {
 
     if (branch) {
       setEditingBranch(branch);
+      
+      // Determine commission based on whether branch_settings comes back as an array or object
+      let commission = 2.5;
+      if (branch.branch_settings) {
+        if (Array.isArray(branch.branch_settings) && branch.branch_settings.length > 0) {
+          commission = branch.branch_settings[0].card_commission_percentage;
+        } else if (!Array.isArray(branch.branch_settings) && branch.branch_settings.card_commission_percentage !== undefined) {
+          commission = branch.branch_settings.card_commission_percentage;
+        }
+      }
+
       setFormData({
         name: branch.name || '',
         code: branch.code || '',
@@ -77,7 +89,8 @@ export function Sucursales() {
         is_active: branch.is_active,
         opening_time: branch.opening_time ? branch.opening_time.substring(0, 5) : '10:00',
         closing_time: branch.closing_time ? branch.closing_time.substring(0, 5) : '22:00',
-        foodbot_sync_enabled: branch.foodbot_sync_enabled ?? true
+        foodbot_sync_enabled: branch.foodbot_sync_enabled ?? true,
+        card_commission_percentage: commission
       });
     } else {
       setEditingBranch(null);
@@ -91,7 +104,8 @@ export function Sucursales() {
         is_active: true,
         opening_time: '10:00',
         closing_time: '22:00',
-        foodbot_sync_enabled: true
+        foodbot_sync_enabled: true,
+        card_commission_percentage: 2.5
       });
     }
     setShowModal(true);
@@ -133,6 +147,8 @@ export function Sucursales() {
         foodbot_sync_enabled: formData.foodbot_sync_enabled
       };
 
+      let currentBranchId = editingBranch ? editingBranch.id : null;
+
       if (editingBranch) {
         const { error } = await supabase
           .from('branches')
@@ -140,10 +156,22 @@ export function Sucursales() {
           .eq('id', editingBranch.id);
         if (error) throw error;
       } else {
-        const { error } = await supabase
+        const { data: newBranch, error } = await supabase
           .from('branches')
-          .insert([payload]);
+          .insert([payload])
+          .select();
         if (error) throw error;
+        currentBranchId = newBranch[0].id;
+      }
+
+      if (currentBranchId) {
+        await supabase
+          .from('branch_settings')
+          .upsert({
+            organization_id: orgId,
+            branch_id: currentBranchId,
+            card_commission_percentage: parseFloat(formData.card_commission_percentage) || 2.5
+          }, { onConflict: 'branch_id' });
       }
 
       await loadBranches();
@@ -367,6 +395,36 @@ export function Sucursales() {
                     </div>
                   </div>
                 )}
+              </div>
+
+              {/* CONFIGURACIÓN FINANCIERA */}
+              <div style={{ background: 'rgba(245,158,11,0.03)', border: '1px solid rgba(245,158,11,0.1)', padding: '24px', borderRadius: '16px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  <label style={{ fontSize: '0.95rem', color: 'var(--text-primary)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    Configuración Financiera
+                  </label>
+                  <p style={{ margin: '4px 0 16px 0', fontSize: '0.85rem', color: 'var(--text-muted)' }}>Configuraciones utilizadas para el cálculo de Estado de Resultados.</p>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <label style={{ fontSize: '0.85rem', color: 'var(--text-primary)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    Comisión por Pagos con Tarjeta (%)
+                  </label>
+                  <div style={{ position: 'relative', width: '140px' }}>
+                    <input 
+                      type="number" 
+                      step="0.01"
+                      min="0"
+                      max="100"
+                      name="card_commission_percentage" 
+                      value={formData.card_commission_percentage} 
+                      onChange={handleInputChange} 
+                      className="neo-input" 
+                      style={{ padding: '10px 16px', paddingRight: '32px', borderRadius: '10px', background: 'white', border: '1px solid var(--border-color)', fontWeight: 600, width: '100%' }} 
+                    />
+                    <span style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', fontWeight: 600 }}>%</span>
+                  </div>
+                </div>
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '16px', marginTop: '10px' }}>
