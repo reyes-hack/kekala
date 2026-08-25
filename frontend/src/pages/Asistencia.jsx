@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Camera, CheckCircle2, AlertCircle, LogOut, LogIn } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 
-export function Asistencia() {
+export function Asistencia({ onClose }) {
   const [pin, setPin] = useState('');
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -207,7 +207,8 @@ export function Asistencia() {
 
       setSuccess(true);
       setTimeout(() => {
-        navigate('/');
+        if (onClose) onClose();
+        else navigate('/');
       }, 2000);
 
     } catch (err) {
@@ -219,15 +220,25 @@ export function Asistencia() {
 
   if (actionType === 'LOADING' || !profile) {
     return (
-      <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ padding: '24px', textAlign: 'center' }}>
         Cargando módulo de asistencia...
       </div>
     );
   }
 
+  const containerStyle = onClose 
+    ? { width: '100%' } // Inside a modal
+    : { minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-color)', padding: '24px' };
+
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-color)', padding: '24px' }}>
-      <div className="neo-surface fade-in" style={{ width: '100%', maxWidth: '440px', padding: '32px', borderRadius: '24px', textAlign: 'center' }}>
+    <div style={containerStyle}>
+      <div className={onClose ? '' : "neo-surface fade-in"} style={{ width: '100%', maxWidth: '440px', margin: '0 auto', padding: onClose ? '0' : '32px', borderRadius: '24px', textAlign: 'center' }}>
+        
+        {onClose && (
+          <button onClick={onClose} className="neo-btn" style={{ marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <LogOut size={16} style={{ transform: 'rotate(180deg)' }} /> Volver al Menú
+          </button>
+        )}
         
         {success ? (
           <div className="fade-in" style={{ padding: '20px 0' }}>
@@ -244,7 +255,7 @@ export function Asistencia() {
             </div>
             <h2 style={{ margin: '0 0 8px 0' }}>Turno Finalizado</h2>
             <p style={{ color: 'var(--text-secondary)' }}>Ya has registrado tu entrada y salida el día de hoy.</p>
-            <button onClick={() => navigate('/')} className="neo-btn" style={{ marginTop: '24px' }}>
+            <button onClick={() => onClose ? onClose() : navigate('/')} className="neo-btn" style={{ marginTop: '24px' }}>
               Volver al Inicio
             </button>
           </div>
