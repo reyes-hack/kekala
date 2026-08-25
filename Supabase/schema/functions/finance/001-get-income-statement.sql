@@ -24,10 +24,14 @@ DECLARE
     v_gross_sales NUMERIC := 0;
     v_discounts NUMERIC := 0;
     v_net_sales NUMERIC := 0;
+    v_cogs NUMERIC := 0;
+    v_gross_profit NUMERIC := 0;
+    v_operating_profit NUMERIC := 0;
+    v_net_profit NUMERIC := 0;
 
-    -- Métodos de pago
     v_cash_sales NUMERIC := 0;
     v_card_sales NUMERIC := 0;
+    v_manual_card_sales NUMERIC := 0;
     v_transfer_sales NUMERIC := 0;
     v_digital_wallet_sales NUMERIC := 0;
 
@@ -244,6 +248,22 @@ BEGIN
     WHERE s.branch_id = p_branch_uuid
       AND s.created_at >= v_period_start
       AND s.created_at < v_period_end;
+
+
+    -- ========================================================
+    -- 6.5 VENTAS DE TERMINAL MANUAL (CORTES DE CAJA)
+    -- ========================================================
+    -- Si Foodbot no capturó métodos de pago de tarjeta correctamente,
+    -- rescatamos lo declarado en los cortes de caja del mismo periodo.
+    SELECT 
+        COALESCE(SUM(pos_terminal_sales), 0)
+    INTO v_manual_card_sales
+    FROM public.cash_closures
+    WHERE branch_id = p_branch_uuid
+      AND close_date >= v_period_start::date
+      AND close_date <= v_period_end::date;
+
+    v_card_sales := GREATEST(v_card_sales, v_manual_card_sales);
 
 
     -- ========================================================
