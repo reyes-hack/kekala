@@ -234,11 +234,10 @@ export function Asistencia({ onClose }) {
     <div style={containerStyle}>
       <div className={onClose ? '' : "neo-surface fade-in"} style={{ width: '100%', maxWidth: '440px', margin: '0 auto', padding: onClose ? '0' : '32px', borderRadius: '24px', textAlign: 'center' }}>
         
-        {onClose && (
-          <button onClick={onClose} className="neo-btn" style={{ marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <LogOut size={16} style={{ transform: 'rotate(180deg)' }} /> Volver al Menú
-          </button>
-        )}
+        {/* Siempre mostrar botón de regreso (onClose o navigate) */}
+        <button onClick={() => onClose ? onClose() : navigate('/')} className="neo-btn" style={{ marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <LogOut size={16} style={{ transform: 'rotate(180deg)' }} /> Volver al Menú
+        </button>
         
         {success ? (
           <div className="fade-in" style={{ padding: '20px 0' }}>

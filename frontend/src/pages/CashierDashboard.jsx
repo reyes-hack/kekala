@@ -5,7 +5,6 @@ import { Asistencia } from './Asistencia';
 
 export function CashierDashboard() {
   const navigate = useNavigate();
-  const [isAttendanceModalOpen, setIsAttendanceModalOpen] = useState(false);
 
   const modules = [
     {
@@ -79,13 +78,7 @@ export function CashierDashboard() {
         {modules.map(mod => (
           <button
             key={mod.id}
-            onClick={() => {
-              if (mod.id === 'asistencia') {
-                setIsAttendanceModalOpen(true);
-              } else {
-                navigate(mod.path);
-              }
-            }}
+            onClick={() => navigate(mod.path)}
             className="glass-panel"
             style={{
               padding: '32px 24px',
@@ -131,34 +124,6 @@ export function CashierDashboard() {
           </button>
         ))}
       </div>
-
-      {isAttendanceModalOpen && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          width: '100vw',
-          height: '100vh',
-          backgroundColor: 'rgba(0, 0, 0, 0.5)',
-          backdropFilter: 'blur(4px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 9999
-        }}>
-          <div className="neo-surface fade-in" style={{
-            width: '90%',
-            maxWidth: '500px',
-            maxHeight: '90vh',
-            overflowY: 'auto',
-            padding: '32px',
-            borderRadius: '24px',
-            position: 'relative'
-          }}>
-            <Asistencia onClose={() => setIsAttendanceModalOpen(false)} />
-          </div>
-        </div>
-      )}
 
     </div>
   );
