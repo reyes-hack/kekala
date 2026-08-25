@@ -140,7 +140,7 @@ export function FinanzasAdmin() {
       </div>
 
       {/* SELECTOR SUCURSAL */}
-      <div className="neo-surface" style={{ padding: '24px', borderRadius: '20px' }}>
+      <div className="neo-surface" style={{ padding: '24px', borderRadius: '20px', position: 'relative', zIndex: 10 }}>
         <h3 style={{ margin: '0 0 16px 0', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
           <Building2 size={20} color="var(--accent-color)" /> Selecciona la Sucursal
         </h3>
