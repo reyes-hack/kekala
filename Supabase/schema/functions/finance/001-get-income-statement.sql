@@ -24,10 +24,7 @@ DECLARE
     v_gross_sales NUMERIC := 0;
     v_discounts NUMERIC := 0;
     v_net_sales NUMERIC := 0;
-    v_cogs NUMERIC := 0;
-    v_gross_profit NUMERIC := 0;
-    v_operating_profit NUMERIC := 0;
-    v_net_profit NUMERIC := 0;
+
 
     v_cash_sales NUMERIC := 0;
     v_card_sales NUMERIC := 0;
