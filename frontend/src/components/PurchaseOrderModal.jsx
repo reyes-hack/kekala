@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, FileText, Download, FileSpreadsheet, Calculator, Check } from 'lucide-react';
+import ReactDOM from 'react-dom';
+import { X, FileText, Download, FileSpreadsheet, Calculator, Check, Plus, Trash2 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { useBranchStore } from '../store/useBranchStore';
 import { exportToPDF, exportToExcelWithStyles } from '../utils/exportUtils';
@@ -9,15 +10,19 @@ export function PurchaseOrderModal({ onClose, viewOrder }) {
   const { activeBranch } = useBranchStore();
   const [loading, setLoading] = useState(!viewOrder);
   const [inventoryData, setInventoryData] = useState([]);
-  const [orderState, setOrderState] = useState(viewOrder ? viewOrder.order_data.orderState : {}); // { product_id: quantity_to_order }
-  const [mode, setMode] = useState('limpia'); // limpia, minimo, sugerido
+  const [orderState, setOrderState] = useState(viewOrder ? (viewOrder.order_data.orderState || {}) : {}); 
+  const [mode, setMode] = useState('limpia'); 
   
+  // Custom Fields
+  const [otros, setOtros] = useState(viewOrder ? (viewOrder.order_data.otros || []) : []);
+  const [kits, setKits] = useState(viewOrder ? (viewOrder.order_data.kits || []) : []);
+  const [observaciones, setObservaciones] = useState(viewOrder ? (viewOrder.order_data.observaciones || '') : '');
+
   const [allBranches, setAllBranches] = useState(viewOrder ? [{id: viewOrder.branch_id, name: 'Historial'}] : []);
   const [selectedBranchId, setSelectedBranchId] = useState(viewOrder ? viewOrder.branch_id : null);
 
   useEffect(() => {
     if (viewOrder) return;
-    // Cargar todas las sucursales para el dropdown
     const loadBranches = async () => {
       const { data } = await supabase.from('branches').select('id, name').order('name');
       setAllBranches(data || []);
@@ -74,7 +79,7 @@ export function PurchaseOrderModal({ onClose, viewOrder }) {
       if (selectedMode === 'minimo') {
         target = inv.minimum_stock || 0;
       } else if (selectedMode === 'sugerido') {
-        target = Math.ceil((inv.minimum_stock || 0) * 1.15); // +15%
+        target = Math.ceil((inv.minimum_stock || 0) * 1.15); 
       }
 
       let diff = target - (inv.current_stock || 0);
@@ -83,9 +88,8 @@ export function PurchaseOrderModal({ onClose, viewOrder }) {
       if (diff > 0) {
         if (isBase) {
           const perBox = p.items_per_box || 1;
-          orderQty = Math.ceil(diff / perBox); // Pedir en cajas
+          orderQty = Math.ceil(diff / perBox); 
         } else {
-          // Líquidos (Coberturas, Rellenos) - guardados en mL, pedidos en L
           orderQty = Math.ceil(diff / 1000); 
         }
       }
@@ -103,23 +107,70 @@ export function PurchaseOrderModal({ onClose, viewOrder }) {
     }));
   };
 
-  const handleExportPDF = () => {
-    const branchName = allBranches.find(b => b.id === selectedBranchId)?.name || 'Sucursal';
-    exportToPDF('po-export-area', `Orden_Compra_${branchName}.pdf`);
+  const handleAddOtro = () => {
+    setOtros([...otros, { category: '', product: '', quantity: '' }]);
+  };
+  const handleUpdateOtro = (idx, field, val) => {
+    const newOtros = [...otros];
+    newOtros[idx][field] = val;
+    setOtros(newOtros);
+  };
+  const handleRemoveOtro = (idx) => {
+    setOtros(otros.filter((_, i) => i !== idx));
   };
 
+  const handleAddKit = () => {
+    setKits([...kits, { product: '', quantity: '' }]);
+  };
+  const handleUpdateKit = (idx, field, val) => {
+    const newKits = [...kits];
+    newKits[idx][field] = val;
+    setKits(newKits);
+  };
+  const handleRemoveKit = (idx) => {
+    setKits(kits.filter((_, i) => i !== idx));
+  };
+
+  const currentBranch = allBranches.find(b => b.id === selectedBranchId) || {};
+
+  const groupedProducts = viewOrder 
+    ? {
+        'Bases Originales': viewOrder.order_data.basesOrig || [],
+        'Bases Flat': viewOrder.order_data.basesFlat || [],
+        'Coberturas': viewOrder.order_data.coberturas || [],
+        'Rellenos': viewOrder.order_data.rellenos || []
+      }
+    : inventoryData.reduce((acc, inv) => {
+        const p = inv.product;
+        if (!p) return acc;
+        
+        let group = 'OtrosProductos';
+        const lowerName = p.name.toLowerCase();
+        
+        if (lowerName.includes('original')) group = 'Bases Originales';
+        else if (lowerName.includes('flat')) group = 'Bases Flat';
+        else if (lowerName.includes('cobertura')) group = 'Coberturas';
+        else if (lowerName.includes('relleno') || lowerName.includes('lechera') || lowerName.includes('nutella')) group = 'Rellenos';
+        
+        if (!acc[group]) acc[group] = [];
+        acc[group].push(inv);
+        return acc;
+      }, {});
+
   const handleExportExcel = () => {
-    const branchName = currentBranch?.name || 'Sucursal';
     const excelData = {
-      branchName: branchName,
+      branchName: currentBranch.name || 'Sucursal',
       date: new Date().toLocaleDateString('es-MX', {day: '2-digit', month: '2-digit', year: '2-digit'}),
       basesOrig: groupedProducts['Bases Originales'] || [],
       basesFlat: groupedProducts['Bases Flat'] || [],
       coberturas: groupedProducts['Coberturas'] || [],
       rellenos: groupedProducts['Rellenos'] || [],
-      orderState
+      orderState,
+      otros,
+      kits,
+      observaciones
     };
-    exportToExcelWithStyles(excelData, `Orden_Compra_${branchName}.xlsx`);
+    exportToExcelWithStyles(excelData, `Orden_Compra_${currentBranch.name || 'Sucursal'}.xlsx`);
   };
 
   const handleConfirmOrder = async () => {
@@ -133,7 +184,10 @@ export function PurchaseOrderModal({ onClose, viewOrder }) {
         basesFlat: groupedProducts['Bases Flat'] || [],
         coberturas: groupedProducts['Coberturas'] || [],
         rellenos: groupedProducts['Rellenos'] || [],
-        orderState
+        orderState,
+        otros,
+        kits,
+        observaciones
       };
 
       const { error } = await supabase
@@ -147,42 +201,16 @@ export function PurchaseOrderModal({ onClose, viewOrder }) {
       if (error) throw error;
 
       alert("✅ Orden de Compra guardada y enviada correctamente.");
-      handleExportExcel(); // Descargamos el Excel automáticamente
-      onClose(); // Cerramos el modal
+      handleExportExcel(); 
+      onClose(); 
     } catch (err) {
       console.error("Error registrando orden:", err);
       alert("Hubo un error al guardar la orden de compra.");
     }
   };
 
-  // Agrupación para la vista
-  const groupedProducts = viewOrder 
-    ? {
-        'Bases Originales': viewOrder.order_data.basesOrig || [],
-        'Bases Flat': viewOrder.order_data.basesFlat || [],
-        'Coberturas': viewOrder.order_data.coberturas || [],
-        'Rellenos': viewOrder.order_data.rellenos || []
-      }
-    : inventoryData.reduce((acc, inv) => {
-        const p = inv.product;
-        if (!p) return acc;
-        
-        let group = 'Otros';
-        const lowerName = p.name.toLowerCase();
-        
-        if (lowerName.includes('original')) group = 'Bases Originales';
-        else if (lowerName.includes('flat')) group = 'Bases Flat';
-        else if (lowerName.includes('cobertura')) group = 'Coberturas';
-        else if (lowerName.includes('relleno') || lowerName.includes('lechera') || lowerName.includes('nutella')) group = 'Rellenos';
-        
-        if (!acc[group]) acc[group] = [];
-        acc[group].push(inv);
-        return acc;
-      }, {});
-
   const renderTableSection = (title, items, isBase) => {
     if (!items || items.length === 0) return null;
-    
     let totalBases = 0;
 
     return (
@@ -252,7 +280,6 @@ export function PurchaseOrderModal({ onClose, viewOrder }) {
               );
             })}
             
-            {/* Fila de Totales */}
             {isBase && (
               <tr>
                 <td colSpan="2" style={{ border: '1px solid #000', padding: '6px 8px', textAlign: 'right', fontWeight: 'bold', fontSize: '12px' }}>TOTAL</td>
@@ -278,11 +305,9 @@ export function PurchaseOrderModal({ onClose, viewOrder }) {
     );
   };
 
-  const currentBranch = allBranches.find(b => b.id === selectedBranchId) || {};
-
-  return (
+  return ReactDOM.createPortal(
     <div className="modal-overlay">
-      <div className="modal-content" style={{ width: '92%', maxWidth: '1050px', height: '90vh', display: 'flex', flexDirection: 'column', background: 'rgba(255, 255, 255, 0.88)', backdropFilter: 'saturate(200%) blur(32px)', border: '1.5px solid rgba(255, 255, 255, 0.95)', borderRadius: '28px', boxShadow: '0 30px 70px rgba(15, 39, 71, 0.25)' }}>
+      <div className="modal-content" style={{ width: '96%', maxWidth: '1200px', height: '90vh', display: 'flex', flexDirection: 'column', background: 'rgba(255, 255, 255, 0.88)', backdropFilter: 'saturate(200%) blur(32px)', border: '1.5px solid rgba(255, 255, 255, 0.95)', borderRadius: '28px', boxShadow: '0 30px 70px rgba(15, 39, 71, 0.25)' }}>
         <header className="modal-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
             <h2 style={{ fontSize: '1.4rem', fontWeight: 800 }}>Generar Orden de Compra</h2>
@@ -354,21 +379,22 @@ export function PurchaseOrderModal({ onClose, viewOrder }) {
               </div>
 
               {/* Área de Impresión / Previsualización */}
-              <div 
-                id="po-export-area" 
-                style={{ 
-                  background: 'white', 
-                  padding: '40px', 
-                  borderRadius: '8px', 
-                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-                  color: 'black',
-                  fontFamily: 'Arial, sans-serif'
-                }}
-              >
-                {/* MATRIZ MAESTRA EN FORMATO TABLA PARA COMPATIBILIDAD CON EXCEL */}
+              <div style={{ width: '100%', overflowX: 'auto', paddingBottom: '20px' }}>
+                <div 
+                  id="po-export-area" 
+                  style={{ 
+                    minWidth: '950px',
+                    background: 'white', 
+                    padding: '40px', 
+                    borderRadius: '8px', 
+                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                    color: 'black',
+                    fontFamily: 'Arial, sans-serif'
+                  }}
+                >
+                {/* MATRIZ MAESTRA EN FORMATO TABLA PARA COMPATIBILIDAD CON EXCEL Y PDF */}
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <tbody>
-                    {/* CABECERA */}
                     <tr>
                       <td colSpan="2" style={{ paddingBottom: '20px' }}>
                         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -400,7 +426,7 @@ export function PurchaseOrderModal({ onClose, viewOrder }) {
                       </td>
                     </tr>
                     
-                    {/* CUERPO - 2x2 Grid */}
+                    {/* CUERPO - 2x2 Grid Original */}
                     <tr>
                       <td style={{ width: '50%', verticalAlign: 'top', paddingRight: '10px', paddingBottom: '20px' }}>
                         {renderTableSection('Bases Originales', groupedProducts['Bases Originales'], true)}
@@ -410,142 +436,182 @@ export function PurchaseOrderModal({ onClose, viewOrder }) {
                       </td>
                     </tr>
                     <tr>
-                      <td style={{ width: '50%', verticalAlign: 'top', paddingRight: '10px' }}>
+                      <td style={{ width: '50%', verticalAlign: 'top', paddingRight: '10px', paddingBottom: '20px' }}>
                         {renderTableSection('Bases Flat', groupedProducts['Bases Flat'], true)}
                       </td>
-                      <td style={{ width: '50%', verticalAlign: 'top', paddingLeft: '10px' }}>
+                      <td style={{ width: '50%', verticalAlign: 'top', paddingLeft: '10px', paddingBottom: '20px' }}>
                         {renderTableSection('Rellenos', groupedProducts['Rellenos'], false)}
                       </td>
                     </tr>
+
+                    {/* SECCIÓN OTROS Y KITS */}
+                    {((otros.length > 0 || !viewOrder) || (kits.length > 0 || !viewOrder)) && (
+                      <tr>
+                        <td style={{ width: '50%', verticalAlign: 'top', paddingRight: '10px', paddingBottom: '20px' }}>
+                          { (otros.length > 0 || !viewOrder) && (
+                            <table style={{ width: '100%', borderCollapse: 'collapse', border: '2px solid #000' }} className="po-table">
+                              <thead>
+                                <tr>
+                                  <th colSpan={viewOrder ? 3 : 4} style={{ background: '#3b82f6', color: 'white', padding: '8px', border: '1px solid #000', fontSize: '14px' }}>
+                                    OTROS
+                                  </th>
+                                </tr>
+                                <tr style={{ background: '#f8fafc' }}>
+                                  <th style={{ border: '1px solid #000', padding: '8px', fontSize: '12px' }}>CATEGORÍA</th>
+                                  <th style={{ border: '1px solid #000', padding: '8px', fontSize: '12px' }}>PRODUCTO</th>
+                                  <th style={{ border: '1px solid #000', padding: '8px', fontSize: '12px', width: '80px' }}>CANTIDAD</th>
+                                  {!viewOrder && <th style={{ border: '1px solid #000', width: '40px' }} data-html2canvas-ignore="true"></th>}
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {otros.map((item, idx) => (
+                                  <tr key={`otro-${idx}`}>
+                                    <td style={{ border: '1px solid #000', padding: '4px' }}>
+                                      <input 
+                                        type="text" 
+                                        value={item.category} 
+                                        onChange={(e) => handleUpdateOtro(idx, 'category', e.target.value)}
+                                        disabled={!!viewOrder}
+                                        style={{ width: '100%', border: 'none', background: 'transparent', outline: 'none', fontSize: '12px' }}
+                                        placeholder="Ej. ACCESORIOS"
+                                      />
+                                    </td>
+                                    <td style={{ border: '1px solid #000', padding: '4px' }}>
+                                      <input 
+                                        type="text" 
+                                        value={item.product} 
+                                        onChange={(e) => handleUpdateOtro(idx, 'product', e.target.value)}
+                                        disabled={!!viewOrder}
+                                        style={{ width: '100%', border: 'none', background: 'transparent', outline: 'none', fontSize: '12px' }}
+                                        placeholder="Ej. FUNDA QUIOSCO"
+                                      />
+                                    </td>
+                                    <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center' }}>
+                                      <input 
+                                        type="number" 
+                                        value={item.quantity} 
+                                        onChange={(e) => handleUpdateOtro(idx, 'quantity', e.target.value)}
+                                        disabled={!!viewOrder}
+                                        style={{ width: '100%', border: 'none', textAlign: 'center', background: 'transparent', outline: 'none', fontSize: '12px' }}
+                                        placeholder="0"
+                                      />
+                                    </td>
+                                    {!viewOrder && (
+                                      <td style={{ border: '1px solid #000', textAlign: 'center' }} data-html2canvas-ignore="true">
+                                        <button onClick={() => handleRemoveOtro(idx)} style={{ background: 'none', border: 'none', color: 'red', cursor: 'pointer' }}><Trash2 size={14} /></button>
+                                      </td>
+                                    )}
+                                  </tr>
+                                ))}
+                                {!viewOrder && (
+                                  <tr data-html2canvas-ignore="true">
+                                    <td colSpan="4" style={{ textAlign: 'center', padding: '8px', border: '1px solid #000' }}>
+                                      <button onClick={handleAddOtro} className="glass-btn" style={{ padding: '4px 12px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '4px', margin: '0 auto' }}>
+                                        <Plus size={14}/> Añadir Otro
+                                      </button>
+                                    </td>
+                                  </tr>
+                                )}
+                              </tbody>
+                            </table>
+                          )}
+                        </td>
+                        <td style={{ width: '50%', verticalAlign: 'top', paddingLeft: '10px', paddingBottom: '20px' }}>
+                          { (kits.length > 0 || !viewOrder) && (
+                            <table style={{ width: '100%', borderCollapse: 'collapse', border: '2px solid #000' }} className="po-table">
+                              <thead>
+                                <tr>
+                                  <th colSpan={viewOrder ? 2 : 3} style={{ background: '#3b82f6', color: 'white', padding: '8px', border: '1px solid #000', fontSize: '14px' }}>
+                                    KITS
+                                  </th>
+                                </tr>
+                                <tr style={{ background: '#f8fafc' }}>
+                                  <th style={{ border: '1px solid #000', padding: '8px', fontSize: '12px' }}>PRODUCTO</th>
+                                  <th style={{ border: '1px solid #000', padding: '8px', fontSize: '12px', width: '80px' }}>CANTIDAD</th>
+                                  {!viewOrder && <th style={{ border: '1px solid #000', width: '40px' }} data-html2canvas-ignore="true"></th>}
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {kits.map((item, idx) => (
+                                  <tr key={`kit-${idx}`}>
+                                    <td style={{ border: '1px solid #000', padding: '4px' }}>
+                                      <input 
+                                        type="text" 
+                                        value={item.product} 
+                                        onChange={(e) => handleUpdateKit(idx, 'product', e.target.value)}
+                                        disabled={!!viewOrder}
+                                        style={{ width: '100%', border: 'none', background: 'transparent', outline: 'none', fontSize: '12px' }}
+                                        placeholder="Ej. KIT DE 1 BISNAGA"
+                                      />
+                                    </td>
+                                    <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center' }}>
+                                      <input 
+                                        type="number" 
+                                        value={item.quantity} 
+                                        onChange={(e) => handleUpdateKit(idx, 'quantity', e.target.value)}
+                                        disabled={!!viewOrder}
+                                        style={{ width: '100%', border: 'none', textAlign: 'center', background: 'transparent', outline: 'none', fontSize: '12px' }}
+                                        placeholder="0"
+                                      />
+                                    </td>
+                                    {!viewOrder && (
+                                      <td style={{ border: '1px solid #000', textAlign: 'center' }} data-html2canvas-ignore="true">
+                                        <button onClick={() => handleRemoveKit(idx)} style={{ background: 'none', border: 'none', color: 'red', cursor: 'pointer' }}><Trash2 size={14} /></button>
+                                      </td>
+                                    )}
+                                  </tr>
+                                ))}
+                                {!viewOrder && (
+                                  <tr data-html2canvas-ignore="true">
+                                    <td colSpan="3" style={{ textAlign: 'center', padding: '8px', border: '1px solid #000' }}>
+                                      <button onClick={handleAddKit} className="glass-btn" style={{ padding: '4px 12px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '4px', margin: '0 auto' }}>
+                                        <Plus size={14}/> Añadir Kit
+                                      </button>
+                                    </td>
+                                  </tr>
+                                )}
+                              </tbody>
+                            </table>
+                          )}
+                        </td>
+                      </tr>
+                    )}
+
+                    {/* OBSERVACIONES */}
+                    { (observaciones || !viewOrder) && (
+                      <tr>
+                        <td colSpan="2" style={{ padding: '0 0 20px 0' }}>
+                          <table style={{ width: '100%', borderCollapse: 'collapse', border: '2px solid #000' }}>
+                            <tbody>
+                              <tr>
+                                <td style={{ padding: '8px', background: '#3b82f6', color: 'white', fontWeight: 'bold', fontSize: '14px', borderBottom: '1px solid #000' }}>OBSERVACIONES:</td>
+                              </tr>
+                              <tr>
+                                <td style={{ padding: '8px' }}>
+                                  <textarea 
+                                    value={observaciones}
+                                    onChange={(e) => setObservaciones(e.target.value)}
+                                    disabled={!!viewOrder}
+                                    style={{ width: '100%', minHeight: '60px', border: 'none', resize: 'none', outline: 'none', fontFamily: 'inherit', fontSize: '12px', background: 'transparent' }}
+                                    placeholder="Escribe notas adicionales aquí..."
+                                  />
+                                </td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>
-
-              {/* TABLA OCULTA PLANA EXCLUSIVA PARA EXCEL */}
-              <table id="excel-export-table" style={{ display: 'none' }}>
-                <tbody>
-                  <tr>
-                    <td rowSpan="4" colSpan="2" style={{ textAlign: 'center', verticalAlign: 'middle', fontSize: '24px', fontWeight: 'bold', color: '#1e3a8a' }}>KEKALA CUSTOM PALETA</td>
-                    <td colSpan="5" style={{ background: '#fef08a', textAlign: 'center', fontWeight: 'bold', border: '1px solid #000' }}>SOLICITUD DE ORDEN DE COMPRA</td>
-                  </tr>
-                  <tr>
-                    <td colSpan="2" style={{ border: '1px solid #000', fontWeight: 'bold' }}>FRANQUICIATARIO</td>
-                    <td colSpan="3" style={{ border: '1px solid #000', textAlign: 'center' }}>YUNMAR COMERCIALIZADORA</td>
-                  </tr>
-                  <tr>
-                    <td colSpan="2" style={{ border: '1px solid #000', fontWeight: 'bold' }}>MUNICIPIO/ESTADO</td>
-                    <td colSpan="2" style={{ border: '1px solid #000', textAlign: 'center' }}>VERACRUZ, BOCA DEL RIO</td>
-                    <td style={{ border: '1px solid #000', fontWeight: 'bold', textAlign: 'center' }}>FECHA</td>
-                  </tr>
-                  <tr>
-                    <td colSpan="2" style={{ border: '1px solid #000', fontWeight: 'bold' }}>SUCURSAL</td>
-                    <td colSpan="2" style={{ border: '1px solid #000', textAlign: 'center' }}>{currentBranch.name?.toUpperCase() || 'SUCURSAL'}</td>
-                    <td style={{ border: '1px solid #000', textAlign: 'center' }}>{new Date().toLocaleDateString('es-MX', {day: '2-digit', month: '2-digit', year: '2-digit'})}</td>
-                  </tr>
-                  <tr><td colSpan="7"></td></tr>
-                  
-                  {/* SECCIÓN 1: Bases Originales y Coberturas */}
-                  <tr>
-                    <td colSpan="4" style={{ background: '#3b82f6', color: 'white', fontWeight: 'bold', border: '1px solid #000', textAlign: 'center' }}>BASES ORIGINALES KEKALA</td>
-                    <td></td>
-                    <td colSpan="2" style={{ background: '#3b82f6', color: 'white', fontWeight: 'bold', border: '1px solid #000', textAlign: 'center' }}>COBERTURAS KEKALA</td>
-                  </tr>
-                  <tr>
-                    <td style={{ border: '1px solid #000', fontWeight: 'bold', textAlign: 'center' }}>PRODUCTO</td>
-                    <td style={{ border: '1px solid #000', fontWeight: 'bold', textAlign: 'center' }}>BASES POR CAJA</td>
-                    <td style={{ border: '1px solid #000', fontWeight: 'bold', textAlign: 'center' }}>NO. CAJAS</td>
-                    <td style={{ border: '1px solid #000', fontWeight: 'bold', textAlign: 'center' }}>TOTAL BASES</td>
-                    <td></td>
-                    <td style={{ border: '1px solid #000', fontWeight: 'bold', textAlign: 'center' }}>PRODUCTO</td>
-                    <td style={{ border: '1px solid #000', fontWeight: 'bold', textAlign: 'center' }}>CANTIDAD (LITROS)</td>
-                  </tr>
-                  {Array.from({ length: Math.max((groupedProducts['Bases Originales'] || []).length, (groupedProducts['Coberturas'] || []).length) }).map((_, i) => {
-                    const b = (groupedProducts['Bases Originales'] || [])[i];
-                    const c = (groupedProducts['Coberturas'] || [])[i];
-                    return (
-                      <tr key={`t1-${i}`}>
-                        {b ? (
-                          <>
-                            <td style={{ border: '1px solid #000' }}>{b.product.name.replace(/Original/gi, '').trim().toUpperCase()}</td>
-                            <td style={{ border: '1px solid #000', textAlign: 'center' }}>{b.product.items_per_box}</td>
-                            <td style={{ border: '1px solid #000', textAlign: 'center' }}>{orderState[b.product.id] || 0}</td>
-                            <td style={{ border: '1px solid #000', textAlign: 'center' }}>{(orderState[b.product.id] || 0) * (b.product.items_per_box || 0)}</td>
-                          </>
-                        ) : (<><td style={{ border: '1px solid #000' }}></td><td style={{ border: '1px solid #000' }}></td><td style={{ border: '1px solid #000' }}></td><td style={{ border: '1px solid #000' }}></td></>)}
-                        <td></td>
-                        {c ? (
-                          <>
-                            <td style={{ border: '1px solid #000' }}>{c.product.name.replace(/Cobertura/gi, '').trim().toUpperCase()}</td>
-                            <td style={{ border: '1px solid #000', textAlign: 'center' }}>{orderState[c.product.id] || 0}</td>
-                          </>
-                        ) : (<><td style={{ border: '1px solid #000' }}></td><td style={{ border: '1px solid #000' }}></td></>)}
-                      </tr>
-                    );
-                  })}
-                  <tr>
-                    <td colSpan="2" style={{ border: '1px solid #000', fontWeight: 'bold', textAlign: 'right' }}>TOTAL</td>
-                    <td style={{ border: '1px solid #000', fontWeight: 'bold', textAlign: 'center' }}>{(groupedProducts['Bases Originales'] || []).reduce((s, x) => s + (orderState[x.product.id] || 0), 0)}</td>
-                    <td style={{ border: '1px solid #000', fontWeight: 'bold', textAlign: 'center' }}>{(groupedProducts['Bases Originales'] || []).reduce((s, x) => s + ((orderState[x.product.id] || 0) * (x.product.items_per_box || 0)), 0)}</td>
-                    <td></td>
-                    <td style={{ border: '1px solid #000', fontWeight: 'bold', textAlign: 'right' }}>TOTAL</td>
-                    <td style={{ border: '1px solid #000', fontWeight: 'bold', textAlign: 'center' }}>{(groupedProducts['Coberturas'] || []).reduce((s, x) => s + (orderState[x.product.id] || 0), 0)}</td>
-                  </tr>
-
-                  <tr><td colSpan="7"></td></tr>
-                  
-                  {/* SECCIÓN 2: Bases Flat y Rellenos */}
-                  <tr>
-                    <td colSpan="4" style={{ background: '#3b82f6', color: 'white', fontWeight: 'bold', border: '1px solid #000', textAlign: 'center' }}>BASES FLAT KEKALA</td>
-                    <td></td>
-                    <td colSpan="2" style={{ background: '#3b82f6', color: 'white', fontWeight: 'bold', border: '1px solid #000', textAlign: 'center' }}>RELLENOS KEKALA</td>
-                  </tr>
-                  <tr>
-                    <td style={{ border: '1px solid #000', fontWeight: 'bold', textAlign: 'center' }}>PRODUCTO</td>
-                    <td style={{ border: '1px solid #000', fontWeight: 'bold', textAlign: 'center' }}>BASES POR CAJA</td>
-                    <td style={{ border: '1px solid #000', fontWeight: 'bold', textAlign: 'center' }}>NO. CAJAS</td>
-                    <td style={{ border: '1px solid #000', fontWeight: 'bold', textAlign: 'center' }}>TOTAL BASES</td>
-                    <td></td>
-                    <td style={{ border: '1px solid #000', fontWeight: 'bold', textAlign: 'center' }}>PRODUCTO</td>
-                    <td style={{ border: '1px solid #000', fontWeight: 'bold', textAlign: 'center' }}>CANTIDAD (LITROS)</td>
-                  </tr>
-                  {Array.from({ length: Math.max((groupedProducts['Bases Flat'] || []).length, (groupedProducts['Rellenos'] || []).length) }).map((_, i) => {
-                    const b = (groupedProducts['Bases Flat'] || [])[i];
-                    const c = (groupedProducts['Rellenos'] || [])[i];
-                    return (
-                      <tr key={`t2-${i}`}>
-                        {b ? (
-                          <>
-                            <td style={{ border: '1px solid #000' }}>{b.product.name.replace(/Flat/gi, '').trim().toUpperCase()}</td>
-                            <td style={{ border: '1px solid #000', textAlign: 'center' }}>{b.product.items_per_box}</td>
-                            <td style={{ border: '1px solid #000', textAlign: 'center' }}>{orderState[b.product.id] || 0}</td>
-                            <td style={{ border: '1px solid #000', textAlign: 'center' }}>{(orderState[b.product.id] || 0) * (b.product.items_per_box || 0)}</td>
-                          </>
-                        ) : (<><td style={{ border: '1px solid #000' }}></td><td style={{ border: '1px solid #000' }}></td><td style={{ border: '1px solid #000' }}></td><td style={{ border: '1px solid #000' }}></td></>)}
-                        <td></td>
-                        {c ? (
-                          <>
-                            <td style={{ border: '1px solid #000' }}>{c.product.name.replace(/Relleno/gi, '').trim().toUpperCase()}</td>
-                            <td style={{ border: '1px solid #000', textAlign: 'center' }}>{orderState[c.product.id] || 0}</td>
-                          </>
-                        ) : (<><td style={{ border: '1px solid #000' }}></td><td style={{ border: '1px solid #000' }}></td></>)}
-                      </tr>
-                    );
-                  })}
-                  <tr>
-                    <td colSpan="2" style={{ border: '1px solid #000', fontWeight: 'bold', textAlign: 'right' }}>TOTAL</td>
-                    <td style={{ border: '1px solid #000', fontWeight: 'bold', textAlign: 'center' }}>{(groupedProducts['Bases Flat'] || []).reduce((s, x) => s + (orderState[x.product.id] || 0), 0)}</td>
-                    <td style={{ border: '1px solid #000', fontWeight: 'bold', textAlign: 'center' }}>{(groupedProducts['Bases Flat'] || []).reduce((s, x) => s + ((orderState[x.product.id] || 0) * (x.product.items_per_box || 0)), 0)}</td>
-                    <td></td>
-                    <td style={{ border: '1px solid #000', fontWeight: 'bold', textAlign: 'right' }}>TOTAL</td>
-                    <td style={{ border: '1px solid #000', fontWeight: 'bold', textAlign: 'center' }}>{(groupedProducts['Rellenos'] || []).reduce((s, x) => s + (orderState[x.product.id] || 0), 0)}</td>
-                  </tr>
-                </tbody>
-              </table>
+              </div>
 
             </>
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

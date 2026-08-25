@@ -20,7 +20,7 @@ export function Inventory() {
   const {
     page, pageSize, globalSearch, advancedFilters,
     setPage, setPageSize, setGlobalSearch, applyAdvancedFilter, clearFilters
-  } = useNeoFilters({ initialPageSize: 10 });
+  } = useNeoFilters({ initialPageSize: 1000 }); // Cargamos todos para agrupar por categoría
 
   // Alias para mantener legibilidad en lógica interna
   const selectedCategory = advancedFilters.category || '';
@@ -282,189 +282,129 @@ export function Inventory() {
           </div>
         ) : inventoryList.length > 0 ? (
           <>
-            <div style={{ overflowX: 'auto', width: '100%' }}>
-              <table className="inventory-table">
-                <thead>
-                  <tr>
-                    <th>Producto</th>
-                    <th>Código</th>
-                    <th>Categoría</th>
-                    <th>Stock Actual</th>
-                    <th>Mínimo (Alerta)</th>
-                    <th>Estado</th>
-                    <th>Acciones</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {inventoryList.map(p => {
-                    const isInitialized = p.branch_inventory && p.branch_inventory.length > 0;
-                    const inv = isInitialized ? p.branch_inventory[0] : null;
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '24px', width: '100%' }}>
+              {['Bases Kekala Original', 'Coberturas Kekala', 'Bases Kekala Flat', 'Rellenos Kekala', 'Otros'].map(groupName => {
+                
+                // Agrupar localmente por nombre del producto (o categoría)
+                const groupItems = inventoryList.filter(p => {
+                  const cat = p.category?.name?.toLowerCase() || '';
+                  const lowerName = p.name.toLowerCase();
+                  const isOriginal = lowerName.includes('original') || cat.includes('original');
+                  const isCobertura = lowerName.includes('cobertura') || cat.includes('cobertura');
+                  const isFlat = lowerName.includes('flat') || cat.includes('flat');
+                  const isRelleno = lowerName.includes('relleno') || lowerName.includes('lechera') || lowerName.includes('nutella') || cat.includes('relleno');
 
-                    let statusClass = 'warn';
-                    let statusText = 'Pendiente';
-                    if (isInitialized) {
-                      if (inv.current_stock > inv.minimum_stock) { statusClass = 'ok'; statusText = 'Óptimo'; }
-                      else if (inv.current_stock === 0) { statusClass = 'danger'; statusText = 'Agotado'; }
-                      else { statusClass = 'warn'; statusText = 'Bajo'; }
-                    }
+                  if (groupName === 'Bases Kekala Original') return isOriginal;
+                  if (groupName === 'Coberturas Kekala') return isCobertura;
+                  if (groupName === 'Bases Kekala Flat') return isFlat;
+                  if (groupName === 'Rellenos Kekala') return isRelleno;
+                  return !isOriginal && !isCobertura && !isFlat && !isRelleno;
+                });
 
-                    return (
-                      <tr key={p.id}>
-                        <td>{p.name}</td>
-                        <td style={{ fontFamily: 'monospace', fontSize: '0.85rem' }}>{p.product_code}</td>
-                        <td>{p.category?.name || '—'}</td>
-                        
-                        {isInitialized ? (
-                          <>
-                            <td style={{ fontWeight: 800, color: 'var(--text-primary)' }}>
-                              {(() => {
-                                const lowerUnit = p.unit?.name?.toLowerCase() || '';
-                                if (lowerUnit.includes('mili')) {
-                                  return (
-                                    <>
-                                      {(inv.current_stock / 1000).toFixed(2).replace(/\.?0+$/, '')} <span style={{fontSize: '0.75rem', fontWeight: 'normal', color: 'var(--text-muted)'}}>L (aprox)</span>
-                                    </>
-                                  );
-                                }
-                                if (lowerUnit.includes('gram')) {
-                                  return (
-                                    <>
-                                      {(inv.current_stock / 1000).toFixed(2).replace(/\.?0+$/, '')} <span style={{fontSize: '0.75rem', fontWeight: 'normal', color: 'var(--text-muted)'}}>kg (aprox)</span>
-                                    </>
-                                  );
-                                }
-                                return (
-                                  <>
-                                    {inv.current_stock} <span style={{fontSize: '0.75rem', fontWeight: 'normal', color: 'var(--text-muted)'}}>{p.unit?.name}</span>
-                                  </>
-                                );
-                              })()}
-                            </td>
-                            <td>
-                              {editingProductId === p.id ? (
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                                  <input
-                                    type="number"
-                                    value={tempMinStock}
-                                    onChange={(e) => setTempMinStock(e.target.value)}
-                                    style={{
-                                      width: '60px',
-                                      padding: '4px 6px',
-                                      border: 'none',
-                                      borderRadius: '4px',
-                                      background: 'var(--surface-color)',
-                                      boxShadow: 'var(--neo-shadow-inset)',
-                                      outline: 'none',
-                                      fontWeight: 600,
-                                      color: 'var(--text-primary)'
-                                    }}
-                                  />
-                                  <button
-                                    onClick={() => guardarStockMinimo(inv.id)}
-                                    style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'var(--status-ok)', padding: '2px' }}
-                                    title="Guardar"
-                                  >
-                                    <Check size={16} strokeWidth={3} />
-                                  </button>
-                                  <button
-                                    onClick={() => setEditingProductId(null)}
-                                    style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'var(--status-danger)', padding: '2px' }}
-                                    title="Cancelar"
-                                  >
-                                    <X size={16} strokeWidth={3} />
-                                  </button>
-                                </div>
-                              ) : (
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                  <span>
+                if (groupItems.length === 0) return null;
+
+                return (
+                  <div key={groupName} className="neo-surface" style={{ padding: '0', borderRadius: '16px', overflow: 'hidden' }}>
+                    <div style={{ background: 'var(--accent-gradient)', padding: '12px', color: 'white', fontWeight: 800, textAlign: 'center', fontSize: '1.1rem' }}>
+                      {groupName.toUpperCase()}
+                    </div>
+                    <div style={{ overflowX: 'auto', width: '100%' }}>
+                      <table className="inventory-table" style={{ width: '100%', margin: 0, minWidth: '340px' }}>
+                      <thead>
+                        <tr>
+                          <th>Producto</th>
+                          <th>Stock</th>
+                          <th>Mín.</th>
+                          <th>Acciones</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {groupItems.map(p => {
+                          const isInitialized = p.branch_inventory && p.branch_inventory.length > 0;
+                          const inv = isInitialized ? p.branch_inventory[0] : null;
+                          let statusClass = 'warn';
+                          if (isInitialized) {
+                            if (inv.current_stock > inv.minimum_stock) statusClass = 'ok';
+                            else if (inv.current_stock === 0) statusClass = 'danger';
+                          }
+
+                          return (
+                            <tr key={p.id}>
+                              <td style={{ fontSize: '0.9rem' }}>
+                                <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{p.name}</div>
+                                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{p.product_code}</div>
+                              </td>
+                              
+                              {isInitialized ? (
+                                <>
+                                  <td style={{ fontWeight: 800, color: 'var(--text-primary)' }}>
                                     {(() => {
                                       const lowerUnit = p.unit?.name?.toLowerCase() || '';
                                       if (lowerUnit.includes('mili') || lowerUnit.includes('gram')) {
-                                        return (inv.minimum_stock / 1000).toFixed(2).replace(/\.?0+$/, '');
+                                        return <>{(inv.current_stock / 1000).toFixed(2).replace(/\.?0+$/, '')}</>;
                                       }
-                                      return inv.minimum_stock;
+                                      return <>{inv.current_stock}</>;
                                     })()}
-                                  </span>
-                                  <button
-                                    onClick={() => {
-                                      setEditingProductId(p.id);
-                                      setTempMinStock(inv.minimum_stock);
-                                    }}
-                                    style={{
-                                      border: 'none',
-                                      background: 'none',
-                                      cursor: 'pointer',
-                                      color: 'var(--text-muted)',
-                                      padding: '4px',
-                                      borderRadius: '4px',
-                                      transition: 'color var(--transition-fast)'
-                                    }}
-                                    className="edit-btn-hover"
-                                    title="Editar límite de alerta"
-                                  >
-                                    <Edit3 size={14} />
+                                  </td>
+                                  <td>
+                                    {editingProductId === p.id ? (
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                        <input
+                                          type="number"
+                                          value={tempMinStock}
+                                          onChange={(e) => setTempMinStock(e.target.value)}
+                                          style={{ width: '50px', padding: '4px', borderRadius: '4px', border: '1px solid var(--border-color)', outline: 'none' }}
+                                        />
+                                        <button onClick={() => guardarStockMinimo(inv.id)} style={{ background: 'none', border: 'none', color: 'var(--status-ok)', cursor: 'pointer' }}><Check size={16} /></button>
+                                        <button onClick={() => setEditingProductId(null)} style={{ background: 'none', border: 'none', color: 'var(--status-danger)', cursor: 'pointer' }}><X size={16} /></button>
+                                      </div>
+                                    ) : (
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                        <span>
+                                          {(() => {
+                                            const lowerUnit = p.unit?.name?.toLowerCase() || '';
+                                            if (lowerUnit.includes('mili') || lowerUnit.includes('gram')) {
+                                              return (inv.minimum_stock / 1000).toFixed(2).replace(/\.?0+$/, '');
+                                            }
+                                            return inv.minimum_stock;
+                                          })()}
+                                        </span>
+                                        <button onClick={() => { setEditingProductId(p.id); setTempMinStock(inv.minimum_stock); }} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}><Edit3 size={14} /></button>
+                                      </div>
+                                    )}
+                                  </td>
+                                  <td>
+                                    <div style={{ display: 'flex', gap: '4px' }}>
+                                      <button className="neo-btn" style={{ padding: '4px 6px' }} onClick={() => setProductToEdit(p)} title="Editar"><Edit2 size={14} /></button>
+                                      <button className="neo-btn" style={{ padding: '4px 6px' }} onClick={() => setAdjustingProduct({ ...p, branch_inventory_id: inv.id, current_stock: inv.current_stock })} title="Ajustar"><ArrowDownUp size={14} /></button>
+                                      <button className="neo-btn" style={{ padding: '4px 6px' }} onClick={() => setHistoryProduct(p)} title="Historial"><History size={14} /></button>
+                                    </div>
+                                  </td>
+                                </>
+                              ) : (
+                                <td colSpan="3" style={{ textAlign: 'center' }}>
+                                  <button className="neo-btn" style={{ padding: '4px 8px', fontSize: '0.8rem' }} onClick={() => inicializarInventario(p.id)} disabled={initLoading === p.id}>
+                                    {initLoading === p.id ? <Loader2 size={12} className="spin" /> : 'Inicializar'}
                                   </button>
-                                </div>
-
+                                </td>
                               )}
-                            </td>
-                            <td><span className={`stock-badge ${statusClass}`}>● {statusText}</span></td>
-                            <td>
-                              <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                <button
-                                  className="neo-btn"
-                                  style={{ padding: '6px 10px', fontSize: '0.8rem' }}
-                                  onClick={() => setProductToEdit(p)}
-                                  title="Editar Producto"
-                                >
-                                  <Edit2 size={14} style={{ color: 'var(--color-secondary)' }} />
-                                </button>
-                                <button
-                                  className="neo-btn"
-                                  style={{ padding: '6px 10px', fontSize: '0.8rem' }}
-                                  onClick={() => setAdjustingProduct({ ...p, branch_inventory_id: inv.id, current_stock: inv.current_stock })}
-                                  title="Ajustar Stock"
-                                >
-                                  <ArrowDownUp size={14} style={{ color: 'var(--color-secondary)' }} />
-                                </button>
-                                <button
-                                  className="neo-btn"
-                                  style={{ padding: '6px 10px', fontSize: '0.8rem' }}
-                                  onClick={() => setHistoryProduct(p)}
-                                  title="Ver Historial (Kárdex)"
-                                >
-                                  <History size={14} style={{ color: 'var(--color-secondary)' }} />
-                                </button>
-                              </div>
-                            </td>
-                          </>
-                        ) : (
-                          <td colSpan="4">
-                            <button 
-                              className="neo-btn" 
-                              style={{ padding: '6px 12px', fontSize: '0.85rem' }}
-                              onClick={() => inicializarInventario(p.id)}
-                              disabled={initLoading === p.id}
-                            >
-                              {initLoading === p.id ? <Loader2 size={14} className="spin" /> : <Play size={14} style={{ color: 'var(--color-secondary)' }} />}
-                              &nbsp;Inicializar Inventario
-                            </button>
-                          </td>
-                        )}
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-
-            <NeoPagination 
+            
+            <div style={{ display: 'none' }}> 
               currentPage={page}
-              pageSize={pageSize}
+              pageSize={1000}
               totalCount={totalCount}
               onPageChange={setPage}
-              onPageSizeChange={setPageSize}
-            />
+            </div>
           </>
         ) : (
           <div className="empty-state">

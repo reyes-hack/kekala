@@ -184,7 +184,6 @@ a {
 
 .glass-content {
   position: relative;
-  z-index: 1;
 }
 
 /* SIDEBAR */
@@ -342,14 +341,12 @@ a {
   padding: 80px 2.5rem 2rem 2.5rem;
   min-height: 100vh;
   position: relative;
-  z-index: 1;
 }
 
 .cashier-main-content {
   flex: 1;
   padding: 24px;
   position: relative;
-  z-index: 1;
 }
 
 /* HEADER */
@@ -701,7 +698,7 @@ a {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 200;
+  z-index: 9999;
   animation: fadeIn 0.2s ease;
 }
 

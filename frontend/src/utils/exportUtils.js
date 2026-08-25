@@ -252,6 +252,97 @@ export const exportToExcelWithStyles = async (data, filename = 'OrdenDeCompra.xl
     worksheet.addRow([]);
     buildSection('BASES FLAT KEKALA', 'RELLENOS KEKALA', data.basesFlat, data.rellenos);
 
+    worksheet.addRow([]);
+    
+    // OTROS & KITS
+    if ((data.otros && data.otros.length > 0) || (data.kits && data.kits.length > 0)) {
+       const hkRow = worksheet.addRow(['', '', '', '', '', '', '']);
+       if (data.otros && data.otros.length > 0) {
+         worksheet.mergeCells(`A${hkRow.number}:D${hkRow.number}`);
+         const to = worksheet.getCell(`A${hkRow.number}`);
+         to.value = "OTROS";
+         to.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF3B82F6' } };
+         to.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+         to.alignment = { horizontal: 'center' };
+         to.border = borderAll;
+         ['B', 'C', 'D'].forEach(c => worksheet.getCell(`${c}${hkRow.number}`).border = borderAll);
+       }
+       
+       if (data.kits && data.kits.length > 0) {
+         worksheet.mergeCells(`F${hkRow.number}:G${hkRow.number}`);
+         const tk = worksheet.getCell(`F${hkRow.number}`);
+         tk.value = "KITS";
+         tk.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF3B82F6' } };
+         tk.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+         tk.alignment = { horizontal: 'center' };
+         tk.border = borderAll;
+         worksheet.getCell(`G${hkRow.number}`).border = borderAll;
+       }
+       
+       const shRow = worksheet.addRow(['', '', '', '', '', '', '']);
+       if (data.otros && data.otros.length > 0) {
+         worksheet.mergeCells(`A${shRow.number}:B${shRow.number}`);
+         shRow.getCell(1).value = "CATEGORÍA";
+         shRow.getCell(3).value = "PRODUCTO";
+         shRow.getCell(4).value = "CANTIDAD";
+         [1, 2, 3, 4].forEach(col => {
+           shRow.getCell(col).font = { bold: true };
+           shRow.getCell(col).alignment = { horizontal: 'center' };
+           shRow.getCell(col).border = borderAll;
+         });
+       }
+       
+       if (data.kits && data.kits.length > 0) {
+         shRow.getCell(6).value = "PRODUCTO";
+         shRow.getCell(7).value = "CANTIDAD";
+         [6, 7].forEach(col => {
+           shRow.getCell(col).font = { bold: true };
+           shRow.getCell(col).alignment = { horizontal: 'center' };
+           shRow.getCell(col).border = borderAll;
+         });
+       }
+       
+       const maxOK = Math.max((data.otros || []).length, (data.kits || []).length);
+       for (let i = 0; i < maxOK; i++) {
+         const dOtro = (data.otros || [])[i];
+         const dKit = (data.kits || [])[i];
+         const r = worksheet.addRow(['', '', '', '', '', '', '']);
+         
+         if (dOtro) {
+           worksheet.mergeCells(`A${r.number}:B${r.number}`);
+           r.getCell(1).value = dOtro.category;
+           r.getCell(3).value = dOtro.product;
+           r.getCell(4).value = dOtro.quantity;
+           [1, 2, 3, 4].forEach(col => r.getCell(col).border = borderAll);
+           r.getCell(4).alignment = { horizontal: 'center' };
+         }
+         
+         if (dKit) {
+           r.getCell(6).value = dKit.product;
+           r.getCell(7).value = dKit.quantity;
+           [6, 7].forEach(col => r.getCell(col).border = borderAll);
+           r.getCell(7).alignment = { horizontal: 'center' };
+         }
+       }
+    }
+    
+    // OBSERVACIONES
+    if (data.observaciones) {
+      worksheet.addRow([]);
+      const obsHeader = worksheet.addRow(['OBSERVACIONES:']);
+      worksheet.mergeCells(`A${obsHeader.number}:G${obsHeader.number}`);
+      obsHeader.getCell(1).font = { bold: true };
+      obsHeader.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF3B82F6' } };
+      obsHeader.getCell(1).border = borderAll;
+      
+      const obsRow = worksheet.addRow([data.observaciones]);
+      worksheet.mergeCells(`A${obsRow.number}:G${obsRow.number}`);
+      obsRow.height = 60;
+      obsRow.getCell(1).alignment = { vertical: 'top', wrapText: true };
+      obsRow.getCell(1).border = borderAll;
+    }
+
+
     const buffer = await workbook.xlsx.writeBuffer();
     saveAs(new Blob([buffer], { type: 'application/octet-stream' }), filename);
   } catch (error) {
