@@ -385,9 +385,7 @@ BEGIN
 
     FROM public.branch_fixed_costs bfc
 
-    WHERE bfc.branch_id = p_branch_uuid
-      AND bfc.month_year >= v_period_start
-      AND bfc.month_year < v_period_end;
+    WHERE bfc.branch_id = p_branch_uuid;
 
 
     -- ========================================================
