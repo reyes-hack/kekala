@@ -244,14 +244,25 @@ export class InventorySyncService {
                             const delta = item.quantity_sold - previousQty;
 
                             if (delta !== 0) {
-                                inventoryMovements.push({
-                                    organization_id: branchData.organization_id,
-                                    branch_id: branchData.id,
-                                    product_id: productInfo.id,
-                                    movement_type_id: saleMovementTypeId,
-                                    quantity: -delta,
-                                    notes: `Venta Foodbot Delta: ${ventasData.fecha}`
-                                });
+                                // Búsqueda de si ya existe un movimiento para este producto en la misma sucursal
+                                const existingMovementIndex = inventoryMovements.findIndex(
+                                    m => m.organization_id === branchData.organization_id &&
+                                         m.branch_id === branchData.id &&
+                                         m.product_id === productInfo.id
+                                );
+
+                                if (existingMovementIndex !== -1) {
+                                    inventoryMovements[existingMovementIndex].quantity -= delta;
+                                } else {
+                                    inventoryMovements.push({
+                                        organization_id: branchData.organization_id,
+                                        branch_id: branchData.id,
+                                        product_id: productInfo.id,
+                                        movement_type_id: saleMovementTypeId,
+                                        quantity: -delta,
+                                        notes: `Venta Foodbot Delta: ${ventasData.fecha}`
+                                    });
+                                }
                                 directProductsProcessed++;
                                 deductedItems.push({ name: item.source_product_name, quantity: delta });
                             }
@@ -266,14 +277,26 @@ export class InventorySyncService {
 
                             if (delta !== 0) {
                                 const deduction = mapping.deduction_quantity * delta;
-                                inventoryMovements.push({
-                                    organization_id: branchData.organization_id,
-                                    branch_id: branchData.id,
-                                    product_id: mapping.product_id,
-                                    movement_type_id: saleMovementTypeId,
-                                    quantity: -deduction,
-                                    notes: `Modificador Venta Foodbot Delta: ${ventasData.fecha}`
-                                });
+                                
+                                // Búsqueda de si ya existe un movimiento para este producto en la misma sucursal
+                                const existingMovementIndex = inventoryMovements.findIndex(
+                                    m => m.organization_id === branchData.organization_id &&
+                                         m.branch_id === branchData.id &&
+                                         m.product_id === mapping.product_id
+                                );
+
+                                if (existingMovementIndex !== -1) {
+                                    inventoryMovements[existingMovementIndex].quantity -= deduction;
+                                } else {
+                                    inventoryMovements.push({
+                                        organization_id: branchData.organization_id,
+                                        branch_id: branchData.id,
+                                        product_id: mapping.product_id,
+                                        movement_type_id: saleMovementTypeId,
+                                        quantity: -deduction,
+                                        notes: `Modificador Venta Foodbot Delta: ${ventasData.fecha}`
+                                    });
+                                }
                                 recipeInputsProcessed += Math.abs(deduction);
                                 deductedItems.push({ name: item.source_product_name, quantity: delta });
                             }

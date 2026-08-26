@@ -113,11 +113,10 @@ export function Dashboard() {
     try {
       const reports = [];
       for (const branchId of selectedBranchIds) {
-        const d = new Date(startDate + 'T12:00:00');
-        const { data, error } = await supabase.rpc('get_income_statement', {
+        const { data, error } = await supabase.rpc('get_income_statement_by_date', {
           p_branch_uuid: branchId,
-          p_target_month: d.getMonth() + 1,
-          p_target_year: d.getFullYear()
+          p_start_date: startDate,
+          p_end_date: endDate
         });
         if (error) {
           console.error(`Error loading P&L for branch ${branchId}:`, error);
@@ -694,7 +693,7 @@ export function Dashboard() {
             </div>
             <h2 style={{ color: 'var(--text-primary)', marginBottom: '12px', fontSize: '1.8rem', fontWeight: 800 }}>Módulo en Construcción</h2>
             <p style={{ color: 'var(--text-muted)', lineHeight: '1.6', marginBottom: '24px' }}>
-              El Dashboard de Estado de Resultados está a la espera de que el equipo de Base de Datos implemente la función <strong>get_income_statement</strong> (Asignación 018).
+              El Dashboard de Estado de Resultados está a la espera de que el equipo de Base de Datos implemente la función <strong>get_income_statement_by_date</strong> (Asignación 018).
             </p>
             <div style={{ padding: '12px', background: 'rgba(255,165,0,0.1)', border: '1px solid rgba(255,165,0,0.3)', borderRadius: '12px', color: '#f59e0b', fontSize: '0.9rem', fontWeight: 600 }}>
               Regla 8: Cero Código Fantasma
