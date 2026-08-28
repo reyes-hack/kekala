@@ -99,6 +99,7 @@ export function Sidebar() {
   } else if (isAdmin) {
     tabs.push({ id: 'asistencia-admin', path: '/asistencia-admin', label: 'Asistencia', icon: UserCheck });
     tabs.push({ id: 'finanzas', path: '/finanzas', label: 'Config. Finanzas', icon: Banknote });
+    tabs.push({ id: 'flujo-efectivo', path: '/flujo-efectivo', label: 'Flujo de Efectivo', icon: Banknote });
     tabs.push({ id: 'configuracion', path: '/configuracion', label: 'Sucursales', icon: LayoutDashboard });
   }
 

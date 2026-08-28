@@ -14,6 +14,7 @@ import { ComingSoon } from './pages/ComingSoon';
 import './index.css';
 import { Configuracion } from './pages/Configuracion';
 import { FinanzasAdmin } from './pages/FinanzasAdmin';
+import { SabanaFinanciera } from './pages/SabanaFinanciera';
 import { LoginNIP } from './pages/LoginNIP';
 import { LoginAdmin } from './pages/LoginAdmin';
 import { ProtectedRoute } from './components/ProtectedRoute';
@@ -38,9 +39,10 @@ function App() {
           <Route path="/" element={<MainLayout />}>
           <Route index element={<Dashboard />} />
           <Route path="inventario" element={<Inventory />} />
-          <Route path="configuracion" element={<Configuracion />} />
-          <Route path="finanzas" element={<FinanzasAdmin />} />
-          <Route path="ventas" element={<Sales />} />
+            <Route path="configuracion" element={<Configuracion />} />
+            <Route path="finanzas" element={<FinanzasAdmin />} />
+            <Route path="flujo-efectivo" element={<SabanaFinanciera />} />
+            <Route path="ventas" element={<Sales />} />
           <Route path="recetario" element={<Recetario />} />
           <Route path="auditoria" element={<Auditoria />} />
           <Route path="gastos" element={<Purchases />} />

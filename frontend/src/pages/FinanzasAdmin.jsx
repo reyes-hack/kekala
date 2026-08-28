@@ -1,21 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { useBranchStore } from '../store/useBranchStore';
-import { Banknote, Building2, Plus, Trash2, Settings, Percent } from 'lucide-react';
-import { NeoSelect } from '../components/NeoSelect';
+import { Banknote, Building2, Plus, Trash2, Settings, Percent, Save } from 'lucide-react';
 
 export function FinanzasAdmin() {
   const { branches, activeBranch, setActiveBranch } = useBranchStore();
   const [loading, setLoading] = useState(false);
-  const [fixedCosts, setFixedCosts] = useState([]);
+  const [savingCommission, setSavingCommission] = useState(false);
+  const [savingConfig, setSavingConfig] = useState(false);
+  
   const [commission, setCommission] = useState(2.5);
   
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [formData, setFormData] = useState({ category: 'RENTA', concept: '', amount: '' });
-  const [savingCost, setSavingCost] = useState(false);
-  const [savingCommission, setSavingCommission] = useState(false);
-
-  const CATEGORIES = ['RENTA', 'NOMINA', 'SERVICIOS', 'MARKETING', 'MANTENIMIENTO', 'SEGUROS', 'IMPUESTOS', 'OTROS'];
+  const [configMonth, setConfigMonth] = useState(new Date().toISOString().slice(0, 7)); // "YYYY-MM"
+  const [activeConfigTab, setActiveConfigTab] = useState('FIJOS'); // 'FIJOS' | 'NOMINA'
+  const [fixedCosts, setFixedCosts] = useState([]);
+  const [payrollData, setPayrollData] = useState([]);
+  const [branchEmployees, setBranchEmployees] = useState([]);
 
   useEffect(() => {
     if (branches.length > 0 && !activeBranch) {
@@ -25,38 +25,64 @@ export function FinanzasAdmin() {
 
   useEffect(() => {
     if (activeBranch) {
-      loadFinancialData();
+      loadCommission();
+      loadMonthlyConfig();
     }
-  }, [activeBranch]);
+  }, [activeBranch, configMonth]);
 
-  const loadFinancialData = async () => {
-    setLoading(true);
+  const loadCommission = async () => {
     try {
-      // 1. Cargar comisiones
       const { data: settingsData } = await supabase
         .from('branch_settings')
         .select('card_commission_percentage')
         .eq('branch_id', activeBranch.id)
-        .single();
+        .maybeSingle();
       
       if (settingsData && settingsData.card_commission_percentage !== undefined) {
         setCommission(settingsData.card_commission_percentage);
       } else {
         setCommission(2.5); // Default
       }
+    } catch (err) {
+      console.error('Error cargando comisión:', err);
+    }
+  };
 
-      // 2. Cargar costos fijos recurrentes
-      const { data: costsData, error: costsError } = await supabase
+  const loadMonthlyConfig = async () => {
+    setLoading(true);
+    try {
+      // 1. Fetch Fixed Costs
+      const { data: fcData, error: fcError } = await supabase
         .from('branch_fixed_costs')
         .select('*')
         .eq('branch_id', activeBranch.id)
-        .order('created_at', { ascending: true });
+        .eq('month_year', configMonth);
         
-      if (costsError) throw costsError;
-      setFixedCosts(costsData || []);
+      if (fcError && fcError.code !== 'PGRST205') throw fcError;
+      setFixedCosts(fcData || []);
 
+      // 2. Fetch Payroll
+      const { data: pData, error: pError } = await supabase
+        .from('branch_payroll')
+        .select('*')
+        .eq('branch_id', activeBranch.id)
+        .eq('month_year', configMonth);
+        
+      if (pError && pError.code !== 'PGRST205') throw pError;
+      setPayrollData(pData || []);
+
+      // 3. Fetch Employees for dropdown
+      const { data: empData, error: empError } = await supabase
+        .from('profiles')
+        .select('id, first_name, last_name, display_name')
+        .eq('branch_id', activeBranch.id)
+        .eq('is_active', true);
+        
+      if (!empError) {
+        setBranchEmployees(empData || []);
+      }
     } catch (err) {
-      console.error('Error cargando datos financieros:', err);
+      console.error(err);
     } finally {
       setLoading(false);
     }
@@ -65,8 +91,8 @@ export function FinanzasAdmin() {
   const handleSaveCommission = async () => {
     setSavingCommission(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const orgId = session.user.user_metadata?.organization_id;
+      const orgId = activeBranch?.organization_id;
+      if (!orgId) throw new Error("No se pudo determinar la organización de la sucursal.");
 
       await supabase
         .from('branch_settings')
@@ -84,43 +110,73 @@ export function FinanzasAdmin() {
     }
   };
 
-  const handleAddCost = async (e) => {
-    e.preventDefault();
-    setSavingCost(true);
+  const saveMonthlyConfig = async () => {
+    setSavingConfig(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const orgId = session.user.user_metadata?.organization_id;
+      const orgId = activeBranch?.organization_id;
+      if (!orgId) throw new Error("No se pudo determinar la organización de la sucursal.");
 
-      const payload = {
+      // Eliminar configuraciones antiguas para este mes y sucursal
+      await Promise.all([
+        supabase.from('branch_fixed_costs').delete().eq('branch_id', activeBranch.id).eq('month_year', configMonth),
+        supabase.from('branch_payroll').delete().eq('branch_id', activeBranch.id).eq('month_year', configMonth)
+      ]);
+
+      // Insertar nuevos gastos fijos
+      const validCosts = fixedCosts.filter(c => c.concept && c.amount).map(c => ({
         organization_id: orgId,
         branch_id: activeBranch.id,
-        category: formData.category,
-        concept: formData.concept,
-        amount: parseFloat(formData.amount)
-      };
+        month_year: configMonth,
+        category: c.category || 'OTROS',
+        concept: c.concept,
+        amount: parseFloat(c.amount)
+      }));
 
-      const { error } = await supabase.from('branch_fixed_costs').insert([payload]);
-      if (error) throw error;
+      // Insertar nueva nómina
+      const validPayroll = payrollData.filter(p => p.employee_id && p.employee_name && p.daily_rate && p.days_worked).map(p => {
+        const rate = parseFloat(p.daily_rate) || 0;
+        const days = parseFloat(p.days_worked) || 0;
+        const bonuses = parseFloat(p.bonuses) || 0;
+        const deductions = parseFloat(p.deductions) || 0;
+        const total_to_pay = (rate * days) + (bonuses * 200) - deductions;
+        
+        return {
+          branch_id: activeBranch.id,
+          month_year: configMonth,
+          employee_id: p.employee_id,
+          employee_name: p.employee_name,
+          daily_rate: rate,
+          days_worked: days,
+          bonuses: bonuses,
+          deductions: deductions,
+          total_to_pay: total_to_pay,
+          bank_clabe: p.bank_clabe || '',
+          bank_name: p.bank_name || ''
+        };
+      });
 
-      setShowAddModal(false);
-      setFormData({ category: 'RENTA', concept: '', amount: '' });
-      loadFinancialData();
+      const promises = [];
+      if (validCosts.length > 0) promises.push(supabase.from('branch_fixed_costs').insert(validCosts));
+      if (validPayroll.length > 0) promises.push(supabase.from('branch_payroll').insert(validPayroll));
+      
+      await Promise.all(promises);
+      
+      alert('Configuración mensual guardada correctamente.');
+      loadMonthlyConfig();
     } catch (err) {
-      alert('Error agregando costo: ' + err.message);
+      console.error(err);
+      alert('Error al guardar configuración: ' + err.message);
     } finally {
-      setSavingCost(false);
+      setSavingConfig(false);
     }
   };
 
-  const handleDeleteCost = async (id) => {
-    if (!window.confirm('¿Eliminar este costo fijo recurrente?')) return;
-    try {
-      const { error } = await supabase.from('branch_fixed_costs').delete().eq('id', id);
-      if (error) throw error;
-      loadFinancialData();
-    } catch (err) {
-      alert('Error eliminando: ' + err.message);
-    }
+  const addFixedCostRow = () => {
+    setFixedCosts([...fixedCosts, { id: Date.now().toString(), category: 'OTROS', concept: '', amount: '' }]);
+  };
+
+  const addPayrollRow = () => {
+    setPayrollData([...payrollData, { id: Date.now().toString(), employee_id: '', employee_name: '', daily_rate: '', days_worked: '', bonuses: '', deductions: '', bank_clabe: '', bank_name: '' }]);
   };
 
   return (
@@ -139,27 +195,12 @@ export function FinanzasAdmin() {
         </div>
       </div>
 
-      {/* SELECTOR SUCURSAL */}
-      <div className="neo-surface" style={{ padding: '24px', borderRadius: '20px', position: 'relative', zIndex: 10 }}>
-        <h3 style={{ margin: '0 0 16px 0', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Building2 size={20} color="var(--accent-color)" /> Selecciona la Sucursal
-        </h3>
-        <div style={{ maxWidth: '400px' }}>
-          <NeoSelect 
-            options={branches.map(b => ({ value: b.id, label: b.name }))}
-            value={activeBranch?.id || ''}
-            onChange={(val) => setActiveBranch(branches.find(b => b.id === val))}
-            placeholder="Seleccionar Sucursal"
-          />
-        </div>
-      </div>
-
-      {loading ? (
+      {!activeBranch ? (
         <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>Cargando datos...</div>
-      ) : activeBranch && (
+      ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '24px', alignItems: 'start' }}>
           
-          {/* COMISIONES BANCARIAS */}
+          {/* COLUMNA 1: COMISIONES */}
           <div className="neo-surface fade-in" style={{ padding: '24px', borderRadius: '20px' }}>
             <h3 style={{ margin: '0 0 8px 0', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <Percent size={20} color="var(--accent-color)" /> Comisión Bancaria
@@ -191,104 +232,229 @@ export function FinanzasAdmin() {
             </div>
           </div>
 
-          {/* COSTOS FIJOS RECURRENTES */}
-          <div className="neo-surface fade-in" style={{ padding: '24px', borderRadius: '20px' }}>
+          {/* COLUMNA 2: COSTOS FIJOS Y NÓMINAS */}
+          <div className="neo-surface fade-in" style={{ padding: '24px', borderRadius: '20px', gridColumn: '1 / -1' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px', flexWrap: 'wrap', gap: '10px' }}>
               <div>
                 <h3 style={{ margin: '0 0 8px 0', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <Banknote size={20} color="var(--accent-color)" /> Costos Fijos Recurrentes
+                  <Banknote size={20} color="var(--accent-color)" /> Gastos Mensuales (Fijos y Nóminas)
                 </h3>
                 <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                  Estos costos se restarán automáticamente del P&L todos los meses.
+                  Configura los gastos y nóminas para cada mes en particular.
                 </p>
               </div>
-              <button onClick={() => setShowAddModal(true)} className="neo-btn" style={{ padding: '8px 16px', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Plus size={16} /> Agregar
-              </button>
             </div>
 
-            {fixedCosts.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '40px 20px', background: 'var(--bg-color)', borderRadius: '12px', color: 'var(--text-muted)' }}>
-                No hay costos fijos recurrentes configurados.
-              </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '24px' }}>
+              <label style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>Mes a configurar:</label>
+              <input 
+                type="month" 
+                value={configMonth} 
+                onChange={(e) => setConfigMonth(e.target.value)}
+                className="neo-input"
+                style={{ width: 'auto' }}
+              />
+            </div>
+
+            <div style={{ display: 'flex', gap: '12px', borderBottom: '1px solid var(--border-color)', marginBottom: '16px' }}>
+              <button 
+                onClick={() => setActiveConfigTab('FIJOS')}
+                style={{ padding: '12px 24px', background: 'none', border: 'none', borderBottom: activeConfigTab === 'FIJOS' ? '2px solid var(--primary-color)' : '2px solid transparent', color: activeConfigTab === 'FIJOS' ? 'var(--primary-color)' : 'var(--text-muted)', fontWeight: 600, cursor: 'pointer' }}
+              >Gastos Fijos</button>
+              <button 
+                onClick={() => setActiveConfigTab('NOMINA')}
+                style={{ padding: '12px 24px', background: 'none', border: 'none', borderBottom: activeConfigTab === 'NOMINA' ? '2px solid var(--primary-color)' : '2px solid transparent', color: activeConfigTab === 'NOMINA' ? 'var(--primary-color)' : 'var(--text-muted)', fontWeight: 600, cursor: 'pointer' }}
+              >Nóminas</button>
+            </div>
+
+            {loading ? (
+              <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>Cargando información del mes...</div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                {fixedCosts.map(cost => (
-                  <div key={cost.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px', background: 'var(--bg-color)', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
-                    <div>
-                      <span style={{ fontSize: '0.75rem', fontWeight: 700, letterSpacing: '1px', color: 'var(--accent-color)', background: 'var(--accent-color-light)', padding: '4px 8px', borderRadius: '6px' }}>
-                        {cost.category}
-                      </span>
-                      <p style={{ margin: '8px 0 0 0', fontWeight: 600, color: 'var(--text-primary)' }}>{cost.concept}</p>
+              <>
+                {activeConfigTab === 'FIJOS' && (
+                  <div style={{ background: 'var(--surface-color)', padding: '24px', borderRadius: '16px', border: '1px solid var(--border-color)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                      <h3 style={{ margin: 0 }}>Desglose de Costos Fijos</h3>
+                      <button onClick={addFixedCostRow} className="neo-btn" style={{ padding: '6px 12px', fontSize: '0.85rem' }}><Plus size={16} /> Agregar Fila</button>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
-                      <span style={{ fontWeight: 800, fontSize: '1.2rem', color: 'var(--text-primary)' }}>
-                        ${Number(cost.amount).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
-                      </span>
-                      <button onClick={() => handleDeleteCost(cost.id)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '8px', display: 'flex', alignItems: 'center' }}>
-                        <Trash2 size={20} />
-                      </button>
+                    
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      {fixedCosts.map((cost, idx) => (
+                        <div key={cost.id} style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                          <select 
+                            value={cost.category || 'OTROS'}
+                            onChange={(e) => {
+                              const newC = [...fixedCosts];
+                              newC[idx].category = e.target.value;
+                              setFixedCosts(newC);
+                            }}
+                            className="neo-input"
+                            style={{ flex: 1 }}
+                          >
+                            <option value="RENTA">Renta</option>
+                            <option value="NOMINA">Nómina / Salarios</option>
+                            <option value="SERVICIOS">Servicios (Luz, Agua, Internet)</option>
+                            <option value="MARKETING">Marketing</option>
+                            <option value="MANTENIMIENTO">Mantenimiento</option>
+                            <option value="SEGUROS">Seguros</option>
+                            <option value="IMPUESTOS">Impuestos</option>
+                            <option value="OTROS">Otros Gastos Fijos</option>
+                          </select>
+                          
+                          <input 
+                            type="text"
+                            placeholder="Concepto (ej. Renta Local 5)"
+                            value={cost.concept || ''}
+                            onChange={(e) => {
+                              const newC = [...fixedCosts];
+                              newC[idx].concept = e.target.value;
+                              setFixedCosts(newC);
+                            }}
+                            className="neo-input"
+                            style={{ flex: 2 }}
+                          />
+                          
+                          <input 
+                            type="number"
+                            placeholder="Monto Mensual $"
+                            value={cost.amount || ''}
+                            onChange={(e) => {
+                              const newC = [...fixedCosts];
+                              newC[idx].amount = e.target.value;
+                              setFixedCosts(newC);
+                            }}
+                            className="neo-input"
+                            style={{ flex: 1 }}
+                          />
+                          
+                          <button onClick={() => {
+                            const newC = [...fixedCosts];
+                            newC.splice(idx, 1);
+                            setFixedCosts(newC);
+                          }} style={{ background: 'transparent', border: 'none', color: 'var(--status-danger)', cursor: 'pointer' }}>
+                            <Trash2 size={20} />
+                          </button>
+                        </div>
+                      ))}
+                      {fixedCosts.length === 0 && <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', fontStyle: 'italic' }}>No hay costos fijos configurados para este mes.</p>}
                     </div>
                   </div>
-                ))}
-              </div>
+                )}
+
+                {activeConfigTab === 'NOMINA' && (
+                  <div style={{ background: 'var(--surface-color)', padding: '24px', borderRadius: '16px', border: '1px solid var(--border-color)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                      <h3 style={{ margin: 0 }}>Desglose de Nómina Mensual</h3>
+                      <button onClick={addPayrollRow} className="neo-btn" style={{ padding: '6px 12px', fontSize: '0.85rem' }}><Plus size={16} /> Agregar Empleado</button>
+                    </div>
+                    
+                    <div style={{ overflowX: 'auto' }}>
+                      <table style={{ width: '100%', minWidth: '900px', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+                        <thead>
+                          <tr style={{ background: 'rgba(37,99,235,0.05)' }}>
+                            <th style={{ padding: '8px', textAlign: 'left' }}>N. Emp.</th>
+                            <th style={{ padding: '8px', textAlign: 'left' }}>Nombre</th>
+                            <th style={{ padding: '8px', textAlign: 'right' }}>$/Día</th>
+                            <th style={{ padding: '8px', textAlign: 'right' }}>Días Lab.</th>
+                            <th style={{ padding: '8px', textAlign: 'right' }}>Bonos</th>
+                            <th style={{ padding: '8px', textAlign: 'right' }}>Desc. $</th>
+                            <th style={{ padding: '8px', textAlign: 'right', color: 'var(--primary-color)' }}>Total a Pagar</th>
+                            <th style={{ padding: '8px', textAlign: 'left' }}>CLABE</th>
+                            <th style={{ padding: '8px', textAlign: 'left' }}>Banco</th>
+                            <th></th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {payrollData.map((emp, idx) => {
+                            const rate = parseFloat(emp.daily_rate) || 0;
+                            const days = parseFloat(emp.days_worked) || 0;
+                            const bonos = parseFloat(emp.bonuses) || 0;
+                            const descuentos = parseFloat(emp.deductions) || 0;
+                            const total = (rate * days) + (bonos * 200) - descuentos;
+
+                            const updateField = (field, val) => {
+                              const newData = [...payrollData];
+                              newData[idx][field] = val;
+                              setPayrollData(newData);
+                            };
+
+                            return (
+                              <tr key={emp.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                              <td style={{ padding: '8px' }}>
+                                <input type="text" className="neo-input" style={{ width: '60px', padding: '6px', background: '#f8fafc' }} value={emp.employee_id ? emp.employee_id.substring(0, 5) : ''} readOnly title={emp.employee_id || 'ID autogenerado'} />
+                              </td>
+                              <td style={{ padding: '8px', minWidth: '160px' }}>
+                                <select 
+                                  className="neo-input" 
+                                  style={{ width: '100%', padding: '6px' }}
+                                  value={emp.employee_id}
+                                  onChange={e => {
+                                    const selectedId = e.target.value;
+                                    const selectedEmp = branchEmployees.find(b => b.id === selectedId);
+                                    if (selectedEmp) {
+                                      const fullName = `${selectedEmp.first_name || ''} ${selectedEmp.last_name || ''}`.trim() || selectedEmp.display_name;
+                                      updateField('employee_id', selectedId);
+                                      updateField('employee_name', fullName);
+                                    } else {
+                                      updateField('employee_id', '');
+                                      updateField('employee_name', '');
+                                    }
+                                  }}
+                                >
+                                  <option value="">Seleccione...</option>
+                                  {branchEmployees.map(b => {
+                                    const name = `${b.first_name || ''} ${b.last_name || ''}`.trim() || b.display_name;
+                                    return <option key={b.id} value={b.id}>{name}</option>
+                                  })}
+                                  {/* Si ya hay un empleado guardado que no está en la lista actual de activos */}
+                                  {emp.employee_id && !branchEmployees.find(b => b.id === emp.employee_id) && (
+                                    <option value={emp.employee_id}>{emp.employee_name}</option>
+                                  )}
+                                </select>
+                              </td>
+                              <td style={{ padding: '8px' }}><input type="number" className="neo-input" style={{ width: '70px', padding: '6px' }} value={emp.daily_rate || ''} onChange={e => updateField('daily_rate', e.target.value)} /></td>
+                                <td style={{ padding: '8px' }}><input type="number" className="neo-input" style={{ width: '60px', padding: '6px' }} value={emp.days_worked || ''} onChange={e => updateField('days_worked', e.target.value)} /></td>
+                                <td style={{ padding: '8px' }}><input type="number" className="neo-input" style={{ width: '60px', padding: '6px' }} value={emp.bonuses || ''} onChange={e => updateField('bonuses', e.target.value)} /></td>
+                                <td style={{ padding: '8px' }}><input type="number" className="neo-input" style={{ width: '70px', padding: '6px' }} value={emp.deductions || ''} onChange={e => updateField('deductions', e.target.value)} /></td>
+                                <td style={{ padding: '8px', textAlign: 'right', fontWeight: 'bold', color: 'var(--primary-color)' }}>${total.toLocaleString('es-MX')}</td>
+                                <td style={{ padding: '8px' }}><input type="text" className="neo-input" style={{ width: '120px', padding: '6px' }} value={emp.bank_clabe || ''} onChange={e => updateField('bank_clabe', e.target.value)} /></td>
+                                <td style={{ padding: '8px' }}><input type="text" className="neo-input" style={{ width: '80px', padding: '6px' }} value={emp.bank_name || ''} onChange={e => updateField('bank_name', e.target.value)} /></td>
+                                <td style={{ padding: '8px' }}>
+                                  <button onClick={() => {
+                                    const newData = [...payrollData];
+                                    newData.splice(idx, 1);
+                                    setPayrollData(newData);
+                                  }} style={{ background: 'transparent', border: 'none', color: 'var(--status-danger)', cursor: 'pointer' }}>
+                                    <Trash2 size={16} />
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                    {payrollData.length === 0 && <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', fontStyle: 'italic', marginTop: '16px' }}>No hay nómina configurada para este mes.</p>}
+                  </div>
+                )}
+
+                <div style={{ marginTop: '24px', display: 'flex', justifyContent: 'flex-end' }}>
+                  <button 
+                    onClick={saveMonthlyConfig}
+                    disabled={savingConfig}
+                    className="neo-btn neo-btn-primary" 
+                    style={{ padding: '12px 24px', fontWeight: 700, borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}
+                  >
+                    <Save size={20} />
+                    {savingConfig ? 'Guardando...' : `Guardar Configuración de ${configMonth}`}
+                  </button>
+                </div>
+              </>
             )}
-          </div>
 
-        </div>
-      )}
-
-      {/* MODAL AGREGAR COSTO */}
-      {showAddModal && (
-        <div className="modal-overlay">
-          <div className="modal-content" style={{ maxWidth: '400px' }}>
-            <h2 style={{ marginTop: 0 }}>Nuevo Costo Fijo</h2>
-            <form onSubmit={handleAddCost} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <div>
-                <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.9rem', fontWeight: 600 }}>Categoría</label>
-                <select 
-                  value={formData.category} 
-                  onChange={e => setFormData({ ...formData, category: e.target.value })}
-                  className="neo-input" 
-                  style={{ width: '100%', padding: '12px', borderRadius: '10px' }}
-                >
-                  {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-                </select>
-              </div>
-              
-              <div>
-                <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.9rem', fontWeight: 600 }}>Concepto (Ej. Sueldo Gerente)</label>
-                <input 
-                  type="text" required 
-                  value={formData.concept} 
-                  onChange={e => setFormData({ ...formData, concept: e.target.value })}
-                  className="neo-input" 
-                  style={{ width: '100%', padding: '12px', borderRadius: '10px' }}
-                />
-              </div>
-
-              <div>
-                <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.9rem', fontWeight: 600 }}>Monto Mensual ($)</label>
-                <input 
-                  type="number" step="0.01" min="0" required 
-                  value={formData.amount} 
-                  onChange={e => setFormData({ ...formData, amount: e.target.value })}
-                  className="neo-input" 
-                  style={{ width: '100%', padding: '12px', borderRadius: '10px' }}
-                />
-              </div>
-
-              <div style={{ display: 'flex', gap: '12px', marginTop: '16px' }}>
-                <button type="button" onClick={() => setShowAddModal(false)} className="neo-btn" style={{ flex: 1 }}>Cancelar</button>
-                <button type="submit" disabled={savingCost} className="neo-btn neo-btn-primary" style={{ flex: 1 }}>
-                  {savingCost ? 'Guardando...' : 'Guardar'}
-                </button>
-              </div>
-            </form>
           </div>
         </div>
       )}
-
     </div>
   );
 }

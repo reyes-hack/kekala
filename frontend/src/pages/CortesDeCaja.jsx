@@ -41,7 +41,15 @@ export function CortesDeCaja() {
       setCurrentUser(user);
       
       if (!isAdmin && user && activeBranch) {
-        const today = new Date().toISOString().split('T')[0];
+      const getMXDateStr = () => {
+        const mxDate = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Mexico_City' }));
+        return [
+          mxDate.getFullYear(),
+          String(mxDate.getMonth() + 1).padStart(2, '0'),
+          String(mxDate.getDate()).padStart(2, '0')
+        ].join('-');
+      };
+      const today = getMXDateStr();
         const { data: existingCut } = await supabase
           .from('cash_closures')
           .select('id')
@@ -63,48 +71,38 @@ export function CortesDeCaja() {
   // ----------------------------------------------------
   // MODO EMPLEADO (HACER CORTE)
   // ----------------------------------------------------
-  const [cutDate, setCutDate] = useState(new Date().toISOString().split('T')[0]);
-  const [openingCash, setOpeningCash] = useState('');
-  const [declaredCash, setDeclaredCash] = useState('');
+  const [cutDate, setCutDate] = useState(() => {
+    const mxDate = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Mexico_City' }));
+    return [
+      mxDate.getFullYear(),
+      String(mxDate.getMonth() + 1).padStart(2, '0'),
+      String(mxDate.getDate()).padStart(2, '0')
+    ].join('-');
+  });
   const [posTerminalSales, setPosTerminalSales] = useState('');
   const [cashSales, setCashSales] = useState('');
-  const [cashIns, setCashIns] = useState('');
-  const [cashOuts, setCashOuts] = useState('');
   const [totalTickets, setTotalTickets] = useState('');
-  const [withdrawals, setWithdrawals] = useState([]); // [{ concept: '', amount: '' }]
+  const [manualDifference, setManualDifference] = useState('');
   
   const startEmployeeCut = () => {
     setMode('EMPLOYEE_CUT');
-    setCutDate(new Date().toISOString().split('T')[0]);
-    setOpeningCash('');
-    setDeclaredCash('');
+    const mxDate = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Mexico_City' }));
+    setCutDate([
+      mxDate.getFullYear(),
+      String(mxDate.getMonth() + 1).padStart(2, '0'),
+      String(mxDate.getDate()).padStart(2, '0')
+    ].join('-'));
     setPosTerminalSales('');
     setCashSales('');
-    setCashIns('');
-    setCashOuts('');
     setTotalTickets('');
-    setWithdrawals([]);
+    setManualDifference('');
   };
 
-  const addWithdrawal = () => {
-    setWithdrawals([...withdrawals, { concept: '', amount: '' }]);
-  };
 
-  const updateWithdrawal = (index, field, value) => {
-    const newW = [...withdrawals];
-    newW[index][field] = value;
-    setWithdrawals(newW);
-  };
-
-  const removeWithdrawal = (index) => {
-    const newW = [...withdrawals];
-    newW.splice(index, 1);
-    setWithdrawals(newW);
-  };
 
   const submitCut = async () => {
-    if (declaredCash === '' || posTerminalSales === '') {
-      alert("Por favor llena al menos el efectivo declarado y las ventas en terminal.");
+    if (cashSales === '' || posTerminalSales === '' || manualDifference === '') {
+      alert("Por favor llena las ventas en efectivo, ventas en terminal y la diferencia.");
       return;
     }
     
@@ -142,29 +140,17 @@ export function CortesDeCaja() {
         close_date: cutDate,
         opened_by: currentUser?.id,
         closed_by: currentUser?.id,
-        opening_cash: parseFloat(openingCash) || 0,
-        declared_cash: parseFloat(declaredCash) || 0,
+        opening_cash: 0,
+        declared_cash: 0,
         pos_terminal_sales: parseFloat(posTerminalSales) || 0,
         cash_sales: parseFloat(cashSales) || 0,
-        cash_ins: parseFloat(cashIns) || 0,
-        cash_outs: parseFloat(cashOuts) || 0,
+        cash_ins: 0,
+        cash_outs: 0,
         total_tickets: parseInt(totalTickets, 10) || 0,
+        manual_difference: parseFloat(manualDifference) || 0
       }).select().single();
 
       if (error) throw error; 
-
-      if (withdrawals.length > 0) {
-        const expensesData = withdrawals.map(w => ({
-          organization_id: activeBranch.organization_id,
-          branch_id: activeBranch.id,
-          expense_date: cutDate,
-          concept: `RETIRO CAJA: ${w.concept}`,
-          amount: parseFloat(w.amount) || 0,
-          category: 'RETIRO_CAJA',
-          registered_by: currentUser?.id
-        }));
-        await supabase.from('expenses').insert(expensesData);
-      }
 
       alert("Corte enviado correctamente.");
       if (isAdmin) {
@@ -186,6 +172,9 @@ export function CortesDeCaja() {
   const [closures, setClosures] = useState([]);
   const [totalClosures, setTotalClosures] = useState(0);
   const [branchesMap, setBranchesMap] = useState({});
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [advancedFilters, setAdvancedFilters] = useState({ branch_id: '', month: '' });
 
   useEffect(() => {
     if (isAdmin && mode === 'ADMIN_FINANCES') {
@@ -198,86 +187,6 @@ export function CortesDeCaja() {
       });
     }
   }, [isAdmin, mode]);
-
-  // Estado del Modal de Configuración Financiera
-  const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
-  const [configMonth, setConfigMonth] = useState(new Date().toISOString().slice(0, 7)); // "YYYY-MM"
-  const [fixedCosts, setFixedCosts] = useState([]);
-
-  const {
-    page, pageSize, globalSearch, advancedFilters,
-    setPage, setPageSize, setGlobalSearch, applyAdvancedFilter, clearFilters
-  } = useNeoFilters({ initialPageSize: 31 }); // 31 days normally
-
-  const openAdminFinances = () => {
-    setMode('ADMIN_FINANCES');
-  };
-
-  const openConfigModal = async () => {
-    setIsConfigModalOpen(true);
-    setLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from('branch_fixed_costs')
-        .select('*')
-        .eq('branch_id', activeBranch.id)
-        .eq('month_year', configMonth);
-        
-      if (error && error.code !== 'PGRST205') throw error;
-      
-      if (error?.code === 'PGRST205') {
-        // Angel hasn't built table yet
-        setFixedCosts([{ id: Date.now().toString(), category: 'RENTA', concept: 'Renta Local', amount: '' }]);
-      } else {
-        setFixedCosts(data || []);
-      }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const saveConfig = async () => {
-    setLoading(true);
-    try {
-      // Delete old config for this month and branch
-      await supabase.from('branch_fixed_costs')
-        .delete()
-        .eq('branch_id', activeBranch.id)
-        .eq('month_year', configMonth);
-
-      // Insert new config
-      const validCosts = fixedCosts.filter(c => c.concept && c.amount).map(c => ({
-        branch_id: activeBranch.id,
-        month_year: configMonth,
-        category: c.category,
-        concept: c.concept,
-        amount: parseFloat(c.amount)
-      }));
-
-      if (validCosts.length > 0) {
-        await supabase.from('branch_fixed_costs').insert(validCosts);
-      }
-      
-      alert('Configuración guardada (Simulado si no hay BD)');
-      setIsConfigModalOpen(false);
-    } catch (err) {
-      console.error(err);
-      if (err.code === 'PGRST205') {
-        alert("Configuración guardada (Backend pendiente)");
-        setIsConfigModalOpen(false);
-      } else {
-        alert('Error al guardar configuración');
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const addFixedCostRow = () => {
-    setFixedCosts([...fixedCosts, { id: Date.now().toString(), category: 'OTROS', concept: '', amount: '' }]);
-  };
 
   useEffect(() => {
     if (mode === 'ADMIN_FINANCES') {
@@ -294,10 +203,11 @@ export function CortesDeCaja() {
 
       if (advancedFilters.branch_id) {
          query = query.eq('branch_id', advancedFilters.branch_id);
+      } else if (activeBranch && activeBranch.id !== 'all') {
+         query = query.eq('branch_id', activeBranch.id);
       }
 
       if (advancedFilters.month) {
-        // e.g. "2026-06"
         const yearMonth = advancedFilters.month;
         query = query
           .gte('close_date', `${yearMonth}-01`)
@@ -315,7 +225,6 @@ export function CortesDeCaja() {
       
       let closuresData = data || [];
       
-      // Mapear perfiles manualmente para evitar el error PGRST200
       const userIds = [...new Set(closuresData.map(c => c.opened_by).filter(Boolean))];
       if (userIds.length > 0) {
          const { data: profiles } = await supabase.from('profiles').select('id, first_name, last_name, display_name').in('id', userIds);
@@ -358,7 +267,6 @@ export function CortesDeCaja() {
       {!loading && mode === 'SELECTION' && (
         <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
           
-          {/* Tarjeta Empleado */}
           <div className="neo-surface" style={{ flex: 1, minWidth: '300px', padding: '40px', borderRadius: '24px', textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '20px', alignItems: 'center' }}>
             <div style={{ background: 'rgba(37, 99, 235, 0.1)', padding: '20px', borderRadius: '50%', color: '#2563eb' }}>
               <ArrowRightLeft size={48} />
@@ -372,7 +280,6 @@ export function CortesDeCaja() {
             </button>
           </div>
 
-          {/* Tarjeta Admin */}
           <div className="neo-surface" style={{ flex: 1, minWidth: '300px', padding: '40px', borderRadius: '24px', textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '20px', alignItems: 'center' }}>
             <div style={{ background: 'rgba(16, 185, 129, 0.1)', padding: '20px', borderRadius: '50%', color: '#10b981' }}>
               <FileText size={48} />
@@ -381,7 +288,7 @@ export function CortesDeCaja() {
               <h2 style={{ margin: '0 0 8px 0', color: 'var(--text-primary)' }}>Sábana Financiera (Admin)</h2>
               <p style={{ margin: 0, color: 'var(--text-muted)' }}>Revisa todo el mes consolidado, comisiones y rentabilidad.</p>
             </div>
-            <button onClick={openAdminFinances} className="neo-btn" style={{ padding: '16px 32px', fontSize: '1.1rem', fontWeight: 700, borderRadius: '12px', width: '100%', marginTop: 'auto', background: 'var(--surface-color)', color: '#10b981', border: '2px solid rgba(16, 185, 129, 0.2)' }}>
+            <button onClick={() => setMode('ADMIN_FINANCES')} className="neo-btn" style={{ padding: '16px 32px', fontSize: '1.1rem', fontWeight: 700, borderRadius: '12px', width: '100%', marginTop: 'auto', background: 'var(--surface-color)', color: '#10b981', border: '2px solid rgba(16, 185, 129, 0.2)' }}>
               Ver Resultados Financieros
             </button>
           </div>
@@ -419,8 +326,6 @@ export function CortesDeCaja() {
               </div>
               
               <div style={{ padding: '40px', display: 'flex', flexDirection: 'column', gap: '32px' }}>
-                
-                {/* Metadatos (Fecha, Tickets) */}
                 <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', background: 'var(--surface-color)', padding: '24px', borderRadius: '16px', border: '1px solid var(--border-color)' }}>
                   <div style={{ flex: 1, minWidth: '200px' }}>
                     <NeoDatePicker 
@@ -430,155 +335,51 @@ export function CortesDeCaja() {
                       disabled
                     />
                   </div>
-                  <div style={{ flex: 1, minWidth: '200px' }}>
-                    <label style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <FileText size={16} style={{color: 'var(--primary-color)'}}/> Número de Tickets
-                    </label>
-                    <input type="number" value={totalTickets} onChange={(e) => setTotalTickets(e.target.value)} className="neo-input" placeholder="0" style={{ padding: '12px 16px', width: '100%', borderRadius: '12px', background: 'var(--background-color)', border: '1px solid var(--border-color)', fontWeight: 600, fontSize: '1rem' }} />
-                  </div>
                 </div>
 
-                {/* TABLA DE CAPTURA */}
-                <div style={{ borderRadius: '16px', overflow: 'hidden', border: '1px solid var(--border-color)', background: 'var(--surface-color)', boxShadow: 'var(--neo-shadow-sm)' }}>
-                  {/* Header de Tabla */}
-                  <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', background: 'rgba(0,0,0,0.03)', padding: '16px 24px', borderBottom: '1px solid var(--border-color)' }}>
-                    <div style={{ fontWeight: 700, color: 'var(--text-secondary)', fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Concepto</div>
-                    <div style={{ fontWeight: 700, color: 'var(--text-secondary)', fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'right' }}>Monto ($)</div>
-                  </div>
-
-                  {/* Fila 1: Apertura */}
-                  <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', alignItems: 'center', padding: '16px 24px', borderBottom: '1px solid var(--border-color)', transition: 'background 0.2s' }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(37,99,235,0.02)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                      <div style={{ background: 'rgba(37,99,235,0.1)', padding: '8px', borderRadius: '8px', color: '#2563eb' }}><ArrowDownLeft size={18} /></div>
-                      <div>
-                        <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Fondo de Caja (Apertura)</div>
-                        <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Dinero con el que inició el turno</div>
+                <div style={{ background: 'var(--surface-color)', padding: '24px', borderRadius: '16px', border: '1px solid var(--border-color)', marginBottom: '32px' }}>
+                  <h3 style={{ margin: '0 0 16px 0', fontSize: '1.2rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <DollarSign size={20} color="var(--accent-color)" /> Ventas e Ingresos
+                  </h3>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.9rem', fontWeight: 600 }}>Total de Tickets</label>
+                      <div style={{ position: 'relative' }}>
+                        <FileText size={18} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                        <input type="number" className="neo-input" style={{ width: '100%', padding: '16px 16px 16px 48px', fontSize: '1.2rem' }} placeholder="0" value={totalTickets} onChange={e => setTotalTickets(e.target.value)} />
                       </div>
                     </div>
                     <div>
-                      <input type="number" value={openingCash} onChange={(e) => setOpeningCash(e.target.value)} className="neo-input" placeholder="0.00" style={{ width: '100%', textAlign: 'right', fontWeight: 700, fontSize: '1.1rem', padding: '12px', background: 'white', borderRadius: '8px', border: '1px solid var(--border-color)' }} />
-                    </div>
-                  </div>
-
-                  {/* Fila 2: Cierre Físico */}
-                  <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', alignItems: 'center', padding: '16px 24px', borderBottom: '1px solid var(--border-color)', transition: 'background 0.2s' }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(16,185,129,0.02)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                      <div style={{ background: 'rgba(16,185,129,0.1)', padding: '8px', borderRadius: '8px', color: '#10b981' }}><DollarSign size={18} /></div>
-                      <div>
-                        <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Efectivo Declarado (Físico)</div>
-                        <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Lo que hay realmente en la caja al cerrar</div>
+                      <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.9rem', fontWeight: 600 }}>Ventas en Efectivo</label>
+                      <div style={{ position: 'relative' }}>
+                        <Banknote size={18} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                        <input type="number" step="0.01" className="neo-input" style={{ width: '100%', padding: '16px 16px 16px 48px', fontSize: '1.2rem' }} placeholder="$0.00" value={cashSales} onChange={e => setCashSales(e.target.value)} />
                       </div>
                     </div>
                     <div>
-                      <input type="number" value={declaredCash} onChange={(e) => setDeclaredCash(e.target.value)} className="neo-input" placeholder="0.00" style={{ width: '100%', textAlign: 'right', fontWeight: 700, fontSize: '1.1rem', padding: '12px', background: 'white', borderRadius: '8px', border: '1px solid var(--border-color)' }} />
-                    </div>
-                  </div>
-
-                  {/* Fila 3: Terminal */}
-                  <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', alignItems: 'center', padding: '16px 24px', borderBottom: '1px solid var(--border-color)', transition: 'background 0.2s' }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(139,92,246,0.02)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                      <div style={{ background: 'rgba(139,92,246,0.1)', padding: '8px', borderRadius: '8px', color: '#8b5cf6' }}><CreditCard size={18} /></div>
-                      <div>
-                        <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Ventas Terminal Bancaria</div>
-                        <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Total pagado con tarjeta (baucher)</div>
+                      <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.9rem', fontWeight: 600 }}>Ventas Terminal (Tarjeta)</label>
+                      <div style={{ position: 'relative' }}>
+                        <CreditCard size={18} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                        <input type="number" step="0.01" className="neo-input" style={{ width: '100%', padding: '16px 16px 16px 48px', fontSize: '1.2rem' }} placeholder="$0.00" value={posTerminalSales} onChange={e => setPosTerminalSales(e.target.value)} />
                       </div>
-                    </div>
-                    <div>
-                      <input type="number" value={posTerminalSales} onChange={(e) => setPosTerminalSales(e.target.value)} className="neo-input" placeholder="0.00" style={{ width: '100%', textAlign: 'right', fontWeight: 700, fontSize: '1.1rem', padding: '12px', background: 'white', borderRadius: '8px', border: '1px solid var(--border-color)' }} />
-                    </div>
-                  </div>
-
-                  {/* Fila 4: Foodbot Efectivo */}
-                  <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', alignItems: 'center', padding: '16px 24px', borderBottom: '1px solid var(--border-color)', transition: 'background 0.2s' }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(245,158,11,0.02)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                      <div style={{ background: 'rgba(245,158,11,0.1)', padding: '8px', borderRadius: '8px', color: '#f59e0b' }}><MonitorSmartphone size={18} /></div>
-                      <div>
-                        <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Ventas Foodbot (Efectivo)</div>
-                        <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Lo que el sistema registró en efectivo</div>
-                      </div>
-                    </div>
-                    <div>
-                      <input type="number" value={cashSales} onChange={(e) => setCashSales(e.target.value)} className="neo-input" placeholder="0.00" style={{ width: '100%', textAlign: 'right', fontWeight: 700, fontSize: '1.1rem', padding: '12px', background: 'white', borderRadius: '8px', border: '1px solid var(--border-color)' }} />
-                    </div>
-                  </div>
-
-                  {/* Fila 5: Cash Ins */}
-                  <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', alignItems: 'center', padding: '16px 24px', borderBottom: '1px solid var(--border-color)', transition: 'background 0.2s' }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(16,185,129,0.02)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                      <div style={{ background: 'rgba(16,185,129,0.1)', padding: '8px', borderRadius: '8px', color: '#10b981' }}><Plus size={18} /></div>
-                      <div>
-                        <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Entradas Extra (Cash Ins)</div>
-                      </div>
-                    </div>
-                    <div>
-                      <input type="number" value={cashIns} onChange={(e) => setCashIns(e.target.value)} className="neo-input" placeholder="0.00" style={{ width: '100%', textAlign: 'right', fontWeight: 700, fontSize: '1.1rem', padding: '12px', background: 'white', borderRadius: '8px', border: '1px solid var(--border-color)' }} />
-                    </div>
-                  </div>
-
-                  {/* Fila 6: Cash Outs */}
-                  <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', alignItems: 'center', padding: '16px 24px', transition: 'background 0.2s' }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(239,68,68,0.02)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                      <div style={{ background: 'rgba(239,68,68,0.1)', padding: '8px', borderRadius: '8px', color: '#ef4444' }}><ArrowUpRight size={18} /></div>
-                      <div>
-                        <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Salidas Extra (Cash Outs)</div>
-                      </div>
-                    </div>
-                    <div>
-                      <input type="number" value={cashOuts} onChange={(e) => setCashOuts(e.target.value)} className="neo-input" placeholder="0.00" style={{ width: '100%', textAlign: 'right', fontWeight: 700, fontSize: '1.1rem', padding: '12px', background: 'white', borderRadius: '8px', border: '1px solid var(--border-color)' }} />
                     </div>
                   </div>
                 </div>
 
-                {/* Retiros Extra */}
-                <div style={{ marginTop: '8px', padding: '24px', background: 'var(--background-color)', borderRadius: '16px', border: '1px dashed var(--border-color)' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-                    <div>
-                      <h3 style={{ margin: 0, fontSize: '1.1rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <Banknote size={20} style={{ color: 'var(--text-muted)' }} /> Retiros Manuales de Efectivo
-                      </h3>
-                      <p style={{ margin: '4px 0 0 0', fontSize: '0.85rem', color: 'var(--text-muted)' }}>Registra compras de insumos o retiros del dueño con el dinero de la caja.</p>
+                <div style={{ background: 'var(--surface-color)', padding: '24px', borderRadius: '16px', border: '1px solid var(--border-color)', marginBottom: '32px' }}>
+                  <h3 style={{ margin: '0 0 16px 0', fontSize: '1.2rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <ShieldAlert size={20} color="var(--accent-color)" /> Diferencia Manual
+                  </h3>
+                  <p style={{ margin: '0 0 16px 0', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                    Registra si hubo faltante (negativo) o sobrante (positivo) de efectivo en caja.
+                  </p>
+                  <div>
+                    <div style={{ position: 'relative', maxWidth: '300px' }}>
+                      <ArrowRightLeft size={18} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                      <input type="number" step="0.01" className="neo-input" style={{ width: '100%', padding: '16px 16px 16px 48px', fontSize: '1.2rem' }} placeholder="Faltante (-) / Sobrante (+)" value={manualDifference} onChange={e => setManualDifference(e.target.value)} />
                     </div>
-                    <button onClick={addWithdrawal} className="neo-btn" style={{ padding: '8px 16px', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '8px', background: 'white', border: '1px solid var(--border-color)', boxShadow: 'var(--neo-shadow-sm)' }}>
-                      <Plus size={16} /> Añadir Fila
-                    </button>
                   </div>
-                  
-                  {withdrawals.length === 0 ? (
-                    <div style={{ textAlign: 'center', padding: '24px 0', background: 'var(--surface-color)', borderRadius: '12px' }}>
-                      <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem', margin: 0 }}>No hay retiros registrados hoy.</p>
-                    </div>
-                  ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                      {withdrawals.map((w, index) => (
-                        <div key={index} style={{ display: 'flex', gap: '16px', alignItems: 'center', background: 'white', padding: '8px 12px', borderRadius: '12px', boxShadow: 'var(--neo-shadow-sm)', border: '1px solid var(--border-color)' }}>
-                          <input 
-                            type="text" 
-                            value={w.concept}
-                            onChange={(e) => updateWithdrawal(index, 'concept', e.target.value)}
-                            placeholder="Concepto (ej. Insumos, Garrafón)"
-                            className="neo-input"
-                            style={{ flex: 2, padding: '10px 12px', border: 'none', background: 'var(--background-color)', borderRadius: '8px', fontSize: '0.95rem' }}
-                          />
-                          <div style={{ flex: 1, position: 'relative' }}>
-                            <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', fontWeight: 700 }}>$</span>
-                            <input 
-                              type="number" 
-                              value={w.amount}
-                              onChange={(e) => updateWithdrawal(index, 'amount', e.target.value)}
-                              placeholder="Monto"
-                              className="neo-input"
-                              style={{ width: '100%', padding: '10px 12px 10px 24px', border: 'none', background: 'var(--background-color)', borderRadius: '8px', fontWeight: 600, fontSize: '0.95rem', textAlign: 'right' }}
-                            />
-                          </div>
-                          <button onClick={() => removeWithdrawal(index)} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '8px', borderRadius: '8px', transition: 'all 0.2s' }} onMouseEnter={e => { e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.background = 'rgba(239,68,68,0.1)'; }} onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.background = 'transparent'; }}>
-                            <Trash2 size={18} />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
                 </div>
-
               </div>
 
               <div style={{ padding: '24px 40px', background: 'rgba(255, 255, 255, 0.5)', borderTop: '1px solid rgba(0,0,0,0.05)', display: 'flex', justifyContent: 'flex-end', backdropFilter: 'blur(10px)' }}>
@@ -597,38 +398,14 @@ export function CortesDeCaja() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
             <h2 style={{ margin: 0, color: 'var(--text-primary)' }}>Sábana de Cierres Diarios</h2>
             <div style={{ display: 'flex', gap: '12px' }}>
-              <button onClick={openConfigModal} className="neo-btn" style={{ padding: '8px 16px', display: 'flex', alignItems: 'center', gap: '8px', border: '1px solid var(--border-color)' }}>
-                <Settings size={18} /> Configurar Finanzas
-              </button>
               <button onClick={() => setMode('SELECTION')} className="neo-btn" style={{ padding: '8px 16px' }}>Volver</button>
             </div>
           </div>
 
           <div style={{ marginBottom: '24px' }}>
-            <NeoAdvancedFilter 
-              globalSearch={globalSearch}
-              onSearchChange={setGlobalSearch}
-              filters={advancedFilters}
-              onFilterApply={applyAdvancedFilter}
-              onClearFilters={clearFilters}
-              filterConfig={[
-                { id: 'month', label: 'Mes de Consulta', type: 'month' },
-                { id: 'branch_id', label: 'Sucursal', type: 'select', options: [{val: '', label: 'Todas'}, ...Object.entries(branchesMap).map(([id, name]) => ({val: id, label: name}))] }
-              ]}
-            />
           </div>
 
-          <div style={{ marginBottom: '24px', padding: '16px 20px', background: 'rgba(59, 130, 246, 0.08)', borderRadius: '16px', border: '1px solid rgba(59, 130, 246, 0.2)', display: 'flex', alignItems: 'flex-start', gap: '16px' }}>
-             <Info size={24} style={{ color: '#3b82f6', marginTop: '2px', flexShrink: 0 }} />
-             <div>
-                <strong style={{ color: '#1d4ed8', fontSize: '1rem', display: 'block', marginBottom: '4px' }}>¿Cómo se calcula la Diferencia?</strong>
-                <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: '1.5' }}>
-                  El sistema compara el <strong>Efectivo Declarado</strong> (Caja Final física) contra el efectivo que se espera tener:<br/>
-                  <code style={{ background: 'rgba(59,130,246,0.1)', padding: '2px 6px', borderRadius: '4px', fontSize: '0.85rem' }}>Caja Inicial + Ventas en Efectivo + Entradas Extra - Salidas Extra</code><br/>
-                  <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>* Las Ventas por Terminal Bancaria no afectan la diferencia ya que no ingresan billetes al cajón físico.</span>
-                </p>
-             </div>
-          </div>
+
 
           {closures.length === 0 ? (
              <div style={{ textAlign: 'center', padding: '60px', color: 'var(--text-muted)' }}>
@@ -650,8 +427,6 @@ export function CortesDeCaja() {
                        <th style={{ padding: '16px 20px', textAlign: 'right', color: 'var(--primary-color)', fontWeight: 800, letterSpacing: '0.5px' }}>VENTAS BRUTAS</th>
                        <th style={{ padding: '16px 20px', textAlign: 'center', color: 'var(--text-secondary)', fontWeight: 700, letterSpacing: '0.5px' }}>TICKETS</th>
                        <th style={{ padding: '16px 20px', textAlign: 'right', color: 'var(--text-secondary)', fontWeight: 700, letterSpacing: '0.5px' }}>TKT. PROM.</th>
-                       <th style={{ padding: '16px 20px', textAlign: 'right', color: 'var(--text-secondary)', fontWeight: 700, letterSpacing: '0.5px' }}>CAJA INICIAL</th>
-                       <th style={{ padding: '16px 20px', textAlign: 'right', color: 'var(--text-secondary)', fontWeight: 700, letterSpacing: '0.5px' }}>CAJA FINAL</th>
                        <th style={{ padding: '16px 20px', textAlign: 'center', color: 'var(--text-secondary)', fontWeight: 700, letterSpacing: '0.5px' }}>DIFERENCIA</th>
                      </tr>
                    </thead>
@@ -659,8 +434,7 @@ export function CortesDeCaja() {
                      {closures.map((closure, idx) => {
                        const totalVentas = closure.cash_sales + closure.pos_terminal_sales;
                        const ticketPromedio = closure.total_tickets > 0 ? (totalVentas / closure.total_tickets).toFixed(2) : 0;
-                       const expectedCash = closure.opening_cash + closure.cash_sales + (closure.cash_ins || 0) - (closure.cash_outs || 0);
-                       const diff = closure.declared_cash - expectedCash;
+                       const diff = closure.manual_difference || 0;
                        const rowBg = idx % 2 === 0 ? 'var(--background-color)' : 'white';
                        
                        return (
@@ -694,12 +468,6 @@ export function CortesDeCaja() {
                            <td style={{ padding: '16px 20px', textAlign: 'right', color: 'var(--text-muted)' }}>
                              ${ticketPromedio}
                            </td>
-                           <td style={{ padding: '16px 20px', textAlign: 'right', color: 'var(--text-muted)' }}>
-                             ${closure.opening_cash?.toLocaleString('es-MX', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
-                           </td>
-                           <td style={{ padding: '16px 20px', textAlign: 'right', fontWeight: 600, color: 'var(--text-primary)' }}>
-                             ${closure.declared_cash?.toLocaleString('es-MX', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
-                           </td>
                            <td style={{ padding: '16px 20px', textAlign: 'center', fontSize: '0.9rem', color: diff < 0 ? 'var(--status-danger)' : (diff > 0 ? '#10b981' : 'var(--text-secondary)'), fontWeight: 700 }}>
                              {diff < 0 ? '-' : (diff > 0 ? '+' : '')}${Math.abs(diff).toFixed(2)}
                            </td>
@@ -722,103 +490,6 @@ export function CortesDeCaja() {
             />
           )}
 
-        </div>
-      )}
-
-      {/* -------------------- MODAL CONFIGURACIÓN FINANCIERA -------------------- */}
-      {isConfigModalOpen && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div className="neo-surface" style={{ width: '90%', maxWidth: '800px', background: 'var(--bg-color)', borderRadius: '24px', overflow: 'hidden', display: 'flex', flexDirection: 'column', maxHeight: '90vh' }}>
-            <div style={{ padding: '24px', background: 'var(--surface-color)', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h2 style={{ margin: 0, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}><Settings /> Configuración de Costos Fijos</h2>
-              <button onClick={() => setIsConfigModalOpen(false)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={24} /></button>
-            </div>
-            
-            <div style={{ padding: '24px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '24px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                <label style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>Mes a configurar:</label>
-                <input 
-                  type="month" 
-                  value={configMonth} 
-                  onChange={(e) => {
-                    setConfigMonth(e.target.value);
-                  }}
-                  className="neo-input"
-                  style={{ width: 'auto' }}
-                />
-              </div>
-
-              <div style={{ background: 'var(--surface-color)', padding: '24px', borderRadius: '16px', border: '1px solid var(--border-color)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                  <h3 style={{ margin: 0 }}>Desglose de Costos Fijos</h3>
-                  <button onClick={addFixedCostRow} className="neo-btn" style={{ padding: '6px 12px', fontSize: '0.85rem' }}><Plus size={16} /> Agregar Fila</button>
-                </div>
-                
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  {fixedCosts.map((cost, idx) => (
-                    <div key={cost.id} style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                      <select 
-                        value={cost.category}
-                        onChange={(e) => {
-                          const newC = [...fixedCosts];
-                          newC[idx].category = e.target.value;
-                          setFixedCosts(newC);
-                        }}
-                        className="neo-input"
-                        style={{ flex: 1 }}
-                      >
-                        <option value="RENTA">Renta</option>
-                        <option value="NOMINA">Nómina / Salarios</option>
-                        <option value="SERVICIOS">Servicios (Luz, Agua, Internet)</option>
-                        <option value="MARKETING">Marketing</option>
-                        <option value="OTROS">Otros Gastos Fijos</option>
-                      </select>
-                      
-                      <input 
-                        type="text"
-                        placeholder="Concepto (ej. Renta Local 5)"
-                        value={cost.concept}
-                        onChange={(e) => {
-                          const newC = [...fixedCosts];
-                          newC[idx].concept = e.target.value;
-                          setFixedCosts(newC);
-                        }}
-                        className="neo-input"
-                        style={{ flex: 2 }}
-                      />
-                      
-                      <input 
-                        type="number"
-                        placeholder="Monto Mensual $"
-                        value={cost.amount}
-                        onChange={(e) => {
-                          const newC = [...fixedCosts];
-                          newC[idx].amount = e.target.value;
-                          setFixedCosts(newC);
-                        }}
-                        className="neo-input"
-                        style={{ flex: 1 }}
-                      />
-                      
-                      <button onClick={() => {
-                        const newC = [...fixedCosts];
-                        newC.splice(idx, 1);
-                        setFixedCosts(newC);
-                      }} style={{ background: 'transparent', border: 'none', color: 'var(--status-danger)', cursor: 'pointer' }}>
-                        <Trash2 size={20} />
-                      </button>
-                    </div>
-                  ))}
-                  {fixedCosts.length === 0 && <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', fontStyle: 'italic' }}>No hay costos fijos configurados para este mes.</p>}
-                </div>
-              </div>
-            </div>
-
-            <div style={{ padding: '24px', background: 'var(--surface-color)', borderTop: '1px solid var(--border-color)', display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
-              <button onClick={() => setIsConfigModalOpen(false)} className="neo-btn">Cancelar</button>
-              <button onClick={saveConfig} className="neo-btn neo-btn-primary">Guardar Configuración</button>
-            </div>
-          </div>
         </div>
       )}
 

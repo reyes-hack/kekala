@@ -37,6 +37,8 @@ export function Inventory() {
   // Estados para Editar Producto Maestro
   const [productToEdit, setProductToEdit] = useState(null);
 
+  const [initLoading, setInitLoading] = useState(null);
+
   const [totalCount, setTotalCount] = useState(0);
 
   // Evitar la primera ejecución doble en StrictMode
@@ -399,12 +401,8 @@ export function Inventory() {
               })}
             </div>
             
-            <div style={{ display: 'none' }}> 
-              currentPage={page}
-              pageSize={1000}
-              totalCount={totalCount}
-              onPageChange={setPage}
-            </div>
+            {/* NeoPagination was hidden intentionally */}
+            <div style={{ display: 'none' }}></div>
           </>
         ) : (
           <div className="empty-state">

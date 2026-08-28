@@ -26,11 +26,11 @@ export const useBranchStore = create((set, get) => ({
       let defaultBranch = branchesData?.[0] || null;
       let finalActiveBranch = currentActive ? currentActive : defaultBranch;
       
-      // Si es empleado/cajero y tiene una sucursal asignada, forzar estrictamente esa sucursal
-      if (roles.includes('CASHIER') && userBranchId) {
-        const cashierBranch = branchesData.find(b => b.id === userBranchId);
-        if (cashierBranch) {
-          finalActiveBranch = cashierBranch;
+      // Si tiene una sucursal asignada (empleado/cajero), forzar estrictamente esa sucursal
+      if (!roles.includes('ADMIN') && userBranchId) {
+        const userBranch = branchesData.find(b => b.id === userBranchId);
+        if (userBranch) {
+          finalActiveBranch = userBranch;
         }
       }
       

@@ -33,6 +33,7 @@ DECLARE
     -- OPEX
     v_expenses_total NUMERIC := 0;
     v_fixed_costs_total NUMERIC := 0;
+    v_payroll_total NUMERIC := 0;
     v_operating_expenses NUMERIC := 0;
 
     -- Finanzas
@@ -145,72 +146,22 @@ BEGIN
 
 
     -- ========================================================
-    -- 6. VENTAS POR MÉTODO DE PAGO
+    -- 6. VENTAS POR MÉTODO DE PAGO (Desde Cortes de Caja)
     -- ========================================================
 
     SELECT
-        COALESCE(
-            SUM(
-                CASE
-                    WHEN cv.code = 'CASH'
-                    THEN p.amount
-                    ELSE 0
-                END
-            ),
-            0
-        ),
-
-        COALESCE(
-            SUM(
-                CASE
-                    WHEN cv.code = 'CARD'
-                    THEN p.amount
-                    ELSE 0
-                END
-            ),
-            0
-        ),
-
-        COALESCE(
-            SUM(
-                CASE
-                    WHEN cv.code = 'TRANSFER'
-                    THEN p.amount
-                    ELSE 0
-                END
-            ),
-            0
-        ),
-
-        COALESCE(
-            SUM(
-                CASE
-                    WHEN cv.code = 'DIGITAL_WALLET'
-                    THEN p.amount
-                    ELSE 0
-                END
-            ),
-            0
-        )
-
+        COALESCE(SUM(cc.cash_sales), 0),
+        COALESCE(SUM(cc.pos_terminal_sales), 0)
     INTO
         v_cash_sales,
-        v_card_sales,
-        v_transfer_sales,
-        v_digital_wallet_sales
+        v_card_sales
+    FROM public.cash_closures cc
+    WHERE cc.branch_id = p_branch_uuid
+      AND cc.close_date >= (v_period_start AT TIME ZONE 'America/Mexico_City')::DATE
+      AND cc.close_date <= ((v_period_end - INTERVAL '1 second') AT TIME ZONE 'America/Mexico_City')::DATE;
 
-    FROM public.payments p
-
-    INNER JOIN public.sales s
-        ON s.id = p.sale_id
-
-    LEFT JOIN public.catalog_values cv
-        ON cv.id = p.payment_method_id
-
-    WHERE s.branch_id = p_branch_uuid
-      AND p.status = 'COMPLETED'
-      AND p.created_at >= v_period_start
-      AND p.created_at < v_period_end;
+    v_transfer_sales := 0;
+    v_digital_wallet_sales := 0;
 
 
     -- ========================================================
@@ -218,19 +169,13 @@ BEGIN
     -- ========================================================
 
     SELECT
-        COALESCE(SUM(poi.total_amount), 0)
+        COALESCE(SUM(e.amount), 0)
     INTO v_cogs
-
-    FROM public.purchase_order_items poi
-
-    INNER JOIN public.purchase_orders po
-        ON po.id = poi.purchase_order_id
-
-    WHERE po.branch_id = p_branch_uuid
-      AND po.status = 'ENTREGADA'
-      AND po.updated_at >= v_period_start
-      AND po.updated_at < v_period_end;
-
+    FROM public.expenses e
+    WHERE e.branch_id = p_branch_uuid
+      AND e.category LIKE 'PEDIDO%'
+      AND e.date >= (v_period_start AT TIME ZONE 'America/Mexico_City')::DATE
+      AND e.date <= ((v_period_end - INTERVAL '1 second') AT TIME ZONE 'America/Mexico_City')::DATE;
 
     -- ========================================================
     -- 8. BREAKDOWN DE COGS
@@ -240,36 +185,20 @@ BEGIN
         COALESCE(
             jsonb_agg(
                 jsonb_build_object(
-                    'purchase_order_id',
-                    po.id,
-                    'concept',
-                    'Pedido ' || LEFT(po.id::TEXT, 8),
-                    'amount',
-                    order_total.amount
+                    'category', e.category,
+                    'concept', e.concept,
+                    'amount', e.amount
                 )
-                ORDER BY po.updated_at
+                ORDER BY e.date
             ),
             '[]'::JSONB
         )
     INTO v_cogs_breakdown
-    FROM (
-        SELECT
-            po.id,
-            po.updated_at,
-            SUM(poi.total_amount) AS amount
-        FROM public.purchase_orders po
-        INNER JOIN public.purchase_order_items poi
-            ON poi.purchase_order_id = po.id
-        WHERE po.branch_id = p_branch_uuid
-          AND po.status = 'ENTREGADA'
-          AND po.updated_at >= v_period_start
-          AND po.updated_at < v_period_end
-        GROUP BY
-            po.id,
-            po.updated_at
-    ) order_total
-    INNER JOIN public.purchase_orders po
-        ON po.id = order_total.id;
+    FROM public.expenses e
+    WHERE e.branch_id = p_branch_uuid
+      AND e.category LIKE 'PEDIDO%'
+      AND e.date >= (v_period_start AT TIME ZONE 'America/Mexico_City')::DATE
+      AND e.date <= ((v_period_end - INTERVAL '1 second') AT TIME ZONE 'America/Mexico_City')::DATE;
 
 
     -- ========================================================
@@ -281,19 +210,28 @@ BEGIN
     INTO v_expenses_total
     FROM public.expenses e
     WHERE e.branch_id = p_branch_uuid
+      AND e.category NOT LIKE 'PEDIDO%'
       AND e.date >= (v_period_start AT TIME ZONE 'America/Mexico_City')::DATE
-      AND e.date <= (v_period_end - INTERVAL '1 second' AT TIME ZONE 'America/Mexico_City')::DATE;
+      AND e.date <= ((v_period_end - INTERVAL '1 second') AT TIME ZONE 'America/Mexico_City')::DATE;
 
 
     -- ========================================================
-    -- 10. COSTOS FIJOS
+    -- 10. COSTOS FIJOS Y NÓMINA (Por Mes)
     -- ========================================================
 
     SELECT
         COALESCE(SUM(bfc.amount), 0)
     INTO v_fixed_costs_total
     FROM public.branch_fixed_costs bfc
-    WHERE bfc.branch_id = p_branch_uuid;
+    WHERE bfc.branch_id = p_branch_uuid
+      AND bfc.month_year = to_char(v_period_start AT TIME ZONE 'America/Mexico_City', 'YYYY-MM');
+
+    SELECT
+        COALESCE(SUM(bp.total_to_pay), 0)
+    INTO v_payroll_total
+    FROM public.branch_payroll bp
+    WHERE bp.branch_id = p_branch_uuid
+      AND bp.month_year = to_char(v_period_start AT TIME ZONE 'America/Mexico_City', 'YYYY-MM');
 
 
     -- ========================================================
@@ -302,7 +240,8 @@ BEGIN
 
     v_operating_expenses :=
         COALESCE(v_expenses_total, 0)
-        + COALESCE(v_fixed_costs_total, 0);
+        + COALESCE(v_fixed_costs_total, 0)
+        + COALESCE(v_payroll_total, 0);
 
 
     -- ========================================================
@@ -315,8 +254,9 @@ BEGIN
             SUM(e.amount) AS amount
         FROM public.expenses e
         WHERE e.branch_id = p_branch_uuid
+          AND e.category NOT LIKE 'PEDIDO%'
           AND e.date >= (v_period_start AT TIME ZONE 'America/Mexico_City')::DATE
-          AND e.date <= (v_period_end - INTERVAL '1 second' AT TIME ZONE 'America/Mexico_City')::DATE
+          AND e.date <= ((v_period_end - INTERVAL '1 second') AT TIME ZONE 'America/Mexico_City')::DATE
         GROUP BY e.category
     ),
     fixed_breakdown AS (
@@ -325,7 +265,17 @@ BEGIN
             SUM(bfc.amount) AS amount
         FROM public.branch_fixed_costs bfc
         WHERE bfc.branch_id = p_branch_uuid
+          AND bfc.month_year = to_char(v_period_start AT TIME ZONE 'America/Mexico_City', 'YYYY-MM')
         GROUP BY bfc.category
+    ),
+    payroll_breakdown AS (
+        SELECT
+            'NÓMINA' AS category,
+            SUM(bp.total_to_pay) AS amount
+        FROM public.branch_payroll bp
+        WHERE bp.branch_id = p_branch_uuid
+          AND bp.month_year = to_char(v_period_start AT TIME ZONE 'America/Mexico_City', 'YYYY-MM')
+        HAVING SUM(bp.total_to_pay) > 0
     ),
     combined AS (
         SELECT
@@ -335,6 +285,8 @@ BEGIN
             SELECT * FROM expense_breakdown
             UNION ALL
             SELECT * FROM fixed_breakdown
+            UNION ALL
+            SELECT * FROM payroll_breakdown
         ) x
         GROUP BY category
     )
@@ -442,7 +394,8 @@ BEGIN
             'total', ROUND(v_operating_expenses, 2),
             'breakdown', v_operating_breakdown,
             'registered_expenses', ROUND(v_expenses_total, 2),
-            'fixed_costs', ROUND(v_fixed_costs_total, 2)
+            'fixed_costs', ROUND(v_fixed_costs_total, 2),
+            'payroll', ROUND(v_payroll_total, 2)
         ),
         'operating_profit', ROUND(v_operating_profit, 2),
         'financial_expenses', jsonb_build_object(

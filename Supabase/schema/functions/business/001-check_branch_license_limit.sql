@@ -9,7 +9,7 @@ DECLARE
 
     v_branch_count INTEGER;
 
-    v_branch_limit INTEGER := 2;
+    v_branch_limit INTEGER := 3;
 
 BEGIN
 

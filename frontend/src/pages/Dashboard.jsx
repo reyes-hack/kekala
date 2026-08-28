@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef, useContext } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { useBranchStore } from '../store/useBranchStore';
-import { Download, FileText, TrendingUp, AlertTriangle, Activity, ChevronDown, ChevronRight, DollarSign, Check, Info } from 'lucide-react';
 import { NeoSelect } from '../components/NeoSelect';
 import { NeoDatePicker } from '../components/NeoDatePicker';
-import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
+import { TrendingUp, DollarSign, FileText, AlertTriangle, ChevronDown, Check, Activity, Info, Wallet, CreditCard, Building, Download, ChevronRight } from 'lucide-react';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 import { jsPDF } from 'jspdf';
@@ -28,13 +28,16 @@ function mergeReports(reports) {
     merged.cogs.total += r.cogs.total;
     merged.gross_profit += r.gross_profit;
     merged.operating_expenses.total += r.operating_expenses.total;
+    merged.operating_expenses.registered_expenses = (merged.operating_expenses.registered_expenses || 0) + (r.operating_expenses.registered_expenses || 0);
+    merged.operating_expenses.fixed_costs = (merged.operating_expenses.fixed_costs || 0) + (r.operating_expenses.fixed_costs || 0);
+    merged.operating_expenses.payroll = (merged.operating_expenses.payroll || 0) + (r.operating_expenses.payroll || 0);
     merged.operating_profit += r.operating_profit;
     merged.financial_expenses.total += r.financial_expenses.total;
     merged.net_profit += r.net_profit;
 
     // Merge breakdowns
     r.cogs.breakdown.forEach(item => {
-      const existing = merged.cogs.breakdown.find(b => b.concept === item.concept);
+      const existing = merged.cogs.breakdown.find(b => b.category === item.category);
       if (existing) existing.amount += item.amount;
       else merged.cogs.breakdown.push({ ...item });
     });
@@ -68,12 +71,25 @@ export function Dashboard() {
     return <CashierDashboard />;
   }
 
+  const getMXDateStr = (date = new Date()) => {
+    const mxDate = new Date(date.toLocaleString('en-US', { timeZone: 'America/Mexico_City' }));
+    return [
+      mxDate.getFullYear(),
+      String(mxDate.getMonth() + 1).padStart(2, '0'),
+      String(mxDate.getDate()).padStart(2, '0')
+    ].join('-');
+  };
+
   const [startDate, setStartDate] = useState(() => {
-    const d = new Date();
+    const d = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Mexico_City' }));
     d.setDate(1);
-    return d.toISOString().split('T')[0];
+    return [
+      d.getFullYear(),
+      String(d.getMonth() + 1).padStart(2, '0'),
+      String(d.getDate()).padStart(2, '0')
+    ].join('-');
   });
-  const [endDate, setEndDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [endDate, setEndDate] = useState(() => getMXDateStr());
 
   const [expandedSections, setExpandedSections] = useState({ cogs: true, opex: true, financial: true });
   const toggleSection = (s) => setExpandedSections(prev => ({ ...prev, [s]: !prev[s] }));
@@ -105,6 +121,7 @@ export function Dashboard() {
   const selectAllBranches = () => setSelectedBranchIds(branches.map(b => b.id));
 
   const [analyticsData, setAnalyticsData] = useState(null);
+  const [cashFlow, setCashFlow] = useState({ caja: 0, neto: 0, banco: 0 });
 
   const loadIncomeStatements = async () => {
     setLoading(true);
@@ -139,7 +156,11 @@ export function Dashboard() {
       // --- FETCH ANALYTICS ---
       const endD = new Date(endDate + 'T12:00:00');
       endD.setDate(endD.getDate() + 1);
-      const endStr = endD.toISOString().split('T')[0];
+      const endStr = [
+        endD.getFullYear(),
+        String(endD.getMonth() + 1).padStart(2, '0'),
+        String(endD.getDate()).padStart(2, '0')
+      ].join('-');
 
       const { data: reportsData } = await supabase
         .from('external_sales_reports')
@@ -181,7 +202,7 @@ export function Dashboard() {
         }
       }
       
-      const avgT = countTickets > 0 ? (sumTickets / countTickets) : 0;
+      const avgT = tOrders > 0 ? (tSales / tOrders) : 0;
       
       const topP = Object.entries(topProductsMap)
         .map(([name, amount]) => ({ name, amount }))
@@ -199,6 +220,45 @@ export function Dashboard() {
           topProducts: topP,
           topModifiers: topM
       });
+
+      // --- CALCULATE CASH FLOW ---
+      let totalCaja = 0;
+      let totalEfectivo = 0;
+      let totalBanco = 0;
+
+      if (selectedBranchIds.length > 0) {
+        // Fetch all-time data to get accurate absolute balances for selected branches
+        const { data: transfersData } = await supabase.from('cash_transfers').select('amount, transfer_type').in('branch_id', selectedBranchIds);
+        const { data: closuresData } = await supabase.from('cash_closures').select('cash_sales, pos_terminal_sales').in('branch_id', selectedBranchIds);
+        const { data: expensesData } = await supabase.from('expenses').select('amount').in('branch_id', selectedBranchIds);
+
+        if (closuresData) {
+          closuresData.forEach(c => {
+            totalCaja += Number(c.cash_sales || 0);
+            totalBanco += Number(c.pos_terminal_sales || 0);
+          });
+        }
+
+        if (expensesData) {
+          expensesData.forEach(e => {
+            totalCaja -= Number(e.amount || 0);
+          });
+        }
+
+        if (transfersData) {
+          transfersData.forEach(t => {
+            if (t.transfer_type === 'BRANCH_TO_ADMIN') {
+              totalCaja -= Number(t.amount);
+              totalEfectivo += Number(t.amount);
+            } else if (t.transfer_type === 'ADMIN_TO_BANK') {
+              totalEfectivo -= Number(t.amount);
+              totalBanco += Number(t.amount);
+            }
+          });
+        }
+      }
+      
+      setCashFlow({ caja: totalCaja, neto: totalEfectivo, banco: totalBanco });
 
     } catch (error) {
       console.error(error);
@@ -431,7 +491,7 @@ export function Dashboard() {
     addSpacer();
 
     addSection('(-) COSTO DE VENTAS', reportData.cogs.total, fp(reportData.cogs.total, ns), 'red');
-    reportData.cogs.breakdown.forEach(i => addChild(i.concept, i.amount));
+    reportData.cogs.breakdown.forEach(i => addChild(i.category, i.amount));
     addSpacer();
 
     addSubtotal('(=) UTILIDAD BRUTA', reportData.gross_profit, fp(reportData.gross_profit, ns));
@@ -496,7 +556,7 @@ export function Dashboard() {
     addRow('(-) Descuentos y Promociones', '', fc(reportData.revenues.discounts), '');
     addRow('(=) VENTAS NETAS', '', fc(ns), '100.0%', true);
     addRow('(-) COSTO DE VENTAS', '', fc(reportData.cogs.total), fp(reportData.cogs.total, ns), true);
-    reportData.cogs.breakdown.forEach(i => addRow(`  • ${i.concept}`, fc(i.amount), '', fp(i.amount, ns)));
+    reportData.cogs.breakdown.forEach(i => addRow(`  • ${i.category}`, fc(i.amount), '', fp(i.amount, ns)));
     addRow('(=) UTILIDAD BRUTA', '', fc(reportData.gross_profit), fp(reportData.gross_profit, ns), true);
     addRow('(-) GASTOS OPERATIVOS', '', fc(reportData.operating_expenses.total), fp(reportData.operating_expenses.total, ns), true);
     reportData.operating_expenses.breakdown.forEach(i => addRow(`  • ${i.category}`, fc(i.amount), '', fp(i.amount, ns)));
@@ -703,54 +763,36 @@ export function Dashboard() {
       ) : (
         <>
           {/* KPI Cards */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px', marginBottom: '24px' }}>
-            <KPICard title="Ventas Netas" amount={reportData.revenues.net_sales} subtitle="Ingreso 100% libre" icon={<TrendingUp size={22} color="#2563eb" />} fc={fc} />
-            <KPICard title="Utilidad Bruta" amount={reportData.gross_profit} subtitle={`Margen: ${fp(reportData.gross_profit, reportData.revenues.net_sales)}`} icon={<DollarSign size={22} color="#f59e0b" />} fc={fc} />
-            <KPICard title="Gastos Totales" amount={reportData.operating_expenses.total + reportData.financial_expenses.total} subtitle={`${fp(reportData.operating_expenses.total + reportData.financial_expenses.total, reportData.revenues.net_sales)} de Ventas`} icon={<AlertTriangle size={22} color="#ef4444" />} fc={fc} />
-            <KPICard title="Utilidad Neta" amount={reportData.net_profit} subtitle={`Margen Neto: ${fp(reportData.net_profit, reportData.revenues.net_sales)}`} icon={<TrendingUp size={22} color="#10b981" />} fc={fc} isSuccess />
+          <div style={{ display: 'flex', gap: '20px', overflowX: 'auto', paddingBottom: '16px', marginBottom: '8px' }}>
+            <div style={{ minWidth: '220px', flex: 1 }}>
+              <KPICard title="1. Ventas Netas" amount={reportData.revenues.net_sales} subtitle="Ingreso 100% libre" icon={<TrendingUp size={22} color="#2563eb" />} fc={fc} />
+            </div>
+            <div style={{ minWidth: '220px', flex: 1 }}>
+              <KPICard title="2. Gastos (Caja Chica)" amount={reportData.operating_expenses.registered_expenses} subtitle="Salidas extra" icon={<AlertTriangle size={22} color="#ef4444" />} fc={fc} />
+            </div>
+            <div style={{ minWidth: '220px', flex: 1 }}>
+              <KPICard title="3. Gastos (Fijos y Nómina)" amount={(reportData.operating_expenses.fixed_costs || 0) + (reportData.operating_expenses.payroll || 0)} subtitle="Costos mensuales" icon={<Building size={22} color="#f59e0b" />} fc={fc} />
+            </div>
+            <div style={{ minWidth: '220px', flex: 1 }}>
+              <KPICard title="4. Utilidad Bruta" amount={reportData.revenues.net_sales - reportData.operating_expenses.total - reportData.financial_expenses.total} subtitle={`Se resta Gastos Totales`} icon={<DollarSign size={22} color="#8b5cf6" />} fc={fc} />
+            </div>
+            <div style={{ minWidth: '220px', flex: 1 }}>
+              <KPICard title="5. Utilidad Neta" amount={reportData.net_profit} subtitle={`Margen Neto: ${fp(reportData.net_profit, reportData.revenues.net_sales)}`} icon={<TrendingUp size={22} color="#10b981" />} fc={fc} isSuccess />
+            </div>
           </div>
 
           {/* Analytics KPI Cards */}
-          {analyticsData && (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px', marginBottom: '24px' }}>
-              <KPICard title="Órdenes Totales" amount={analyticsData.totalOrders} subtitle="En el periodo seleccionado" icon={<FileText size={22} color="#8b5cf6" />} fc={(v) => v.toString()} />
-              <KPICard title="Ticket Promedio" amount={analyticsData.averageTicket} subtitle="Gasto promedio por orden" icon={<DollarSign size={22} color="#06b6d4" />} fc={fc} />
-            </div>
-          )}
-
-          {/* Analytics Charts */}
-          {analyticsData && (
-            <div className="responsive-grid-2">
-              <div className="glass-panel" style={{ padding: '24px' }}>
-                <h3 style={{ margin: '0 0 16px 0', textAlign: 'center', color: 'var(--text-primary)' }}>Top 5 Productos Vendidos</h3>
-                <div style={{ height: '280px' }}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={analyticsBarData}>
-                      <XAxis dataKey="name" fontSize={10} tickMargin={8} />
-                      <YAxis fontSize={10} />
-                      <Tooltip formatter={(v) => v} cursor={{ fill: 'rgba(255,255,255,0.4)' }} contentStyle={{ background: 'rgba(255,255,255,0.8)', borderRadius: '12px', backdropFilter: 'blur(10px)' }} />
-                      <Bar dataKey="amount" fill="#8b5cf6" radius={[6, 6, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-
-              <div className="glass-panel" style={{ padding: '24px' }}>
-                <h3 style={{ margin: '0 0 16px 0', textAlign: 'center', color: 'var(--text-primary)' }}>Complementos Más Usados</h3>
-                <div style={{ height: '280px' }}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie data={analyticsPieData} cx="50%" cy="50%" innerRadius={55} outerRadius={95} paddingAngle={4} dataKey="value">
-                        {analyticsPieData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-                      </Pie>
-                      <Tooltip formatter={(v) => v} contentStyle={{ background: 'rgba(255,255,255,0.8)', borderRadius: '12px', backdropFilter: 'blur(10px)' }} />
-                      <Legend wrapperStyle={{ fontSize: '11px' }} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-            </div>
-          )}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px', marginBottom: '24px' }}>
+            {analyticsData && (
+              <>
+                <KPICard title="Órdenes Totales" amount={analyticsData.totalOrders} subtitle="En el periodo seleccionado" icon={<FileText size={22} color="#8b5cf6" />} fc={(v) => v.toString()} />
+                <KPICard title="Ticket Promedio" amount={analyticsData.averageTicket} subtitle="Ventas Brutas / Órdenes" icon={<DollarSign size={22} color="#06b6d4" />} fc={fc} />
+              </>
+            )}
+            <KPICard title="Efectivo Neto (Pendiente)" amount={cashFlow.neto} subtitle="Cortes de Caja" icon={<Wallet size={22} color="#64748b" />} fc={fc} />
+            <KPICard title="Efectivo en Caja (Pendiente)" amount={cashFlow.caja} subtitle="Cortes de Caja" icon={<Wallet size={22} color="#64748b" />} fc={fc} />
+            <KPICard title="Terminal (Pendiente)" amount={cashFlow.banco} subtitle="Cortes de Caja" icon={<CreditCard size={22} color="#64748b" />} fc={fc} />
+          </div>
 
           {/* Financial Charts */}
           <div className="responsive-grid-2">
@@ -809,7 +851,7 @@ export function Dashboard() {
 
                   <TableRow label="(-) COSTO DE VENTAS" total={reportData.cogs.total} pct={fp(reportData.cogs.total, reportData.revenues.net_sales)} isMain hasChildren isOpen={expandedSections.cogs} onToggle={() => toggleSection('cogs')} fc={fc} />
                   {expandedSections.cogs && reportData.cogs.breakdown.map((item, i) => (
-                    <TableRow key={i} label={`• ${item.concept}`} partial={item.amount} pct={fp(item.amount, reportData.revenues.net_sales)} isChild fc={fc} />
+                    <TableRow key={i} label={`• ${item.category}`} partial={item.amount} pct={fp(item.amount, reportData.revenues.net_sales)} isChild fc={fc} />
                   ))}
 
                   <TableRow label="(=) UTILIDAD BRUTA" total={reportData.gross_profit} pct={fp(reportData.gross_profit, reportData.revenues.net_sales)} isMain success fc={fc} />

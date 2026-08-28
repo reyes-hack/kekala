@@ -60,7 +60,7 @@ export function Sucursales() {
   };
 
   const openModal = (branch = null) => {
-    if (!branch && branchesList.length >= 2) {
+    if (!branch && branchesList.length >= 3) {
       // LIMIT REACHED FOR NEW BRANCH
       setShowLicenseModal(true);
       return;

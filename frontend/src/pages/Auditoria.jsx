@@ -30,8 +30,9 @@ export function Auditoria() {
   useEffect(() => {
     if (activeBranch) {
       loadInitialData();
+      setSelectedAuditSession(null);
     }
-  }, [activeBranch]);
+  }, [activeBranch?.id]);
 
   useEffect(() => {
     if (activeBranch && !isAdmin && currentUser) {
@@ -192,7 +193,7 @@ export function Auditoria() {
     if (mode === 'ADMIN_REVIEW' && !selectedAuditSession) {
       loadAdminSessions();
     }
-  }, [mode, selectedAuditSession, page, pageSize, globalSearch, advancedFilters]);
+  }, [mode, selectedAuditSession, page, pageSize, globalSearch, advancedFilters, activeBranch?.id]);
 
   const openAdminReview = () => {
     setMode('ADMIN_REVIEW');
@@ -408,6 +409,17 @@ export function Auditoria() {
                     <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 600 }}>
                       CANTIDAD {p.product.unit ? (Array.isArray(p.product.unit) ? `(${p.product.unit[0]?.name?.toUpperCase()})` : `(${p.product.unit.name?.toUpperCase()})`) : ''}:
                     </label>
+                    {(() => {
+                       const unitStr = p.product.unit ? (Array.isArray(p.product.unit) ? p.product.unit[0]?.name?.toLowerCase() : p.product.unit.name?.toLowerCase()) : '';
+                       if (unitStr?.includes('mili') || unitStr?.includes('ml') || unitStr?.includes('gram') || unitStr?.includes('gr')) {
+                         return (
+                           <div style={{ fontSize: '0.7rem', color: '#ef4444', fontWeight: 700, maxWidth: '140px', lineHeight: 1.2, background: 'rgba(239, 68, 68, 0.1)', padding: '4px 6px', borderRadius: '4px' }}>
+                             ⚠ Escribe la cantidad COMPLETA (Ej: 1 Litro = 1000)
+                           </div>
+                         );
+                       }
+                       return null;
+                    })()}
                     <input 
                       type="number"
                       step="any" 

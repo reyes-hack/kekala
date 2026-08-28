@@ -16,7 +16,8 @@ export function Purchases() {
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState(null);
   const [showPOModal, setShowPOModal] = useState(false);
-  const [activeTab, setActiveTab] = useState(isAdmin ? 'lista' : 'historial'); // 'lista' o 'historial'
+  const [activeTab, setActiveTab] = useState(isAdmin ? 'lista' : 'historial'); 
+  const [refreshHistoryTrigger, setRefreshHistoryTrigger] = useState(0);
   
   // Estado temporal para la edición
   const [tempCost, setTempCost] = useState('');
@@ -171,11 +172,18 @@ export function Purchases() {
       </div>
 
       {showPOModal && (
-        <PurchaseOrderModal onClose={() => setShowPOModal(false)} />
+        <PurchaseOrderModal 
+           onClose={() => setShowPOModal(false)} 
+           onSuccess={() => {
+             setShowPOModal(false);
+             setRefreshHistoryTrigger(prev => prev + 1);
+             setActiveTab('historial');
+           }}
+        />
       )}
 
       {activeTab === 'historial' ? (
-        <PurchaseOrderHistory />
+        <PurchaseOrderHistory refreshTrigger={refreshHistoryTrigger} />
       ) : activeTab === 'gastos' ? (
         <ExpensesList />
       ) : (

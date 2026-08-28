@@ -45,15 +45,15 @@ export function ExpensesList() {
   const [profileName, setProfileName] = useState('Empleado');
 
   useEffect(() => {
-    if (!isAdmin && session?.user?.id) {
+    if (session?.user?.id) {
       supabase.from('profiles').select('display_name, first_name, last_name').eq('id', session.user.id).single()
       .then(({data}) => {
          if (data) {
-           setProfileName(data.display_name || data.first_name || 'Empleado');
+           setProfileName(data.display_name || data.first_name || (isAdmin ? 'Administrador' : 'Empleado'));
          }
       });
     }
-  }, [isAdmin, session]);
+  }, [session, isAdmin]);
 
   useEffect(() => {
     if (activeBranch) {
@@ -69,6 +69,11 @@ export function ExpensesList() {
         .from('expenses')
         .select('*', { count: 'exact' })
         .eq('branch_id', activeBranch.id);
+
+      // Si no es admin, ocultamos los gastos grandes de órdenes de compra (categoría empieza con PEDIDO)
+      if (!isAdmin) {
+        query = query.not('category', 'ilike', 'PEDIDO%');
+      }
 
       // Advanced Filters
       if (advancedFilters.date_from) {
@@ -151,7 +156,7 @@ export function ExpensesList() {
     try {
       setSaving(true);
       
-      const finalResponsible = isAdmin ? formData.responsible.trim() : profileName;
+      const finalResponsible = profileName;
 
       const { error } = await supabase
         .from('expenses')
@@ -314,21 +319,6 @@ export function ExpensesList() {
               />
             </div>
 
-            {isAdmin && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <label style={{ fontSize: '0.85rem', color: 'var(--text-primary)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <User size={16} style={{color: 'var(--primary-color)'}}/> Responsable <span style={{color: 'var(--status-danger)'}}>*</span>
-                </label>
-                <NeoSelect 
-                  name="responsible" 
-                  value={formData.responsible} 
-                  onChange={handleInputChange} 
-                  options={responsibles} 
-                  placeholder="Ej. ALEJANDRA" 
-                  required 
-                />
-              </div>
-            )}
           </div>
 
           {/* TOTAL HIGHLIGHT ROW */}

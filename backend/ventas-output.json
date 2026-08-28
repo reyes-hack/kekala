@@ -1,0 +1,679 @@
+{
+  "fecha": "2026-08-19",
+  "sucursales": [
+    {
+      "branchCode": "AMERICAS_VER",
+      "branchName": "Américas Veracruz",
+      "kpis": {
+        "ordenes": 504,
+        "ventas": 59830,
+        "ticketPromedio": 118.71
+      },
+      "productosVendidos": [
+        {
+          "productCode": "AGUA_NATURAL_600_ML",
+          "productName": "Agua Natural 600 ml",
+          "ordenes": 3,
+          "cantidad": 3,
+          "ventas": 60
+        },
+        {
+          "productCode": "CHOCO_CROCANTE",
+          "productName": "Choco Crocante",
+          "ordenes": 60,
+          "cantidad": 65,
+          "ventas": 5200
+        },
+        {
+          "productCode": "CHOCOBLANCO",
+          "productName": "Chocoblanco",
+          "ordenes": 5,
+          "cantidad": 6,
+          "ventas": 390
+        },
+        {
+          "productCode": "CHOCOLATUDO",
+          "productName": "Chocolatudo",
+          "ordenes": 28,
+          "cantidad": 30,
+          "ventas": 3000
+        },
+        {
+          "productCode": "DULCE_CROCANTE",
+          "productName": "Dulce Crocante",
+          "ordenes": 18,
+          "cantidad": 19,
+          "ventas": 1520
+        },
+        {
+          "productCode": "ESPECIAL_FLAT",
+          "productName": "Especial Flat",
+          "ordenes": 15,
+          "cantidad": 18,
+          "ventas": 1180
+        },
+        {
+          "productCode": "ESPECIAL_ORIGINAL",
+          "productName": "Especial Original",
+          "ordenes": 263,
+          "cantidad": 361,
+          "ventas": 29810
+        },
+        {
+          "productCode": "FRESADO",
+          "productName": "Fresado",
+          "ordenes": 16,
+          "cantidad": 16,
+          "ventas": 1600
+        },
+        {
+          "productCode": "FRESH",
+          "productName": "Fresh",
+          "ordenes": 2,
+          "cantidad": 2,
+          "ventas": 130
+        },
+        {
+          "productCode": "LECHE_CRISPI",
+          "productName": "Leche Crispi",
+          "ordenes": 13,
+          "cantidad": 13,
+          "ventas": 845
+        },
+        {
+          "productCode": "PISTACHE",
+          "productName": "Pistache",
+          "ordenes": 24,
+          "cantidad": 25,
+          "ventas": 2125
+        },
+        {
+          "productCode": "TRADICIONAL_FLAT",
+          "productName": "Tradicional Flat",
+          "ordenes": 23,
+          "cantidad": 29,
+          "ventas": 1595
+        },
+        {
+          "productCode": "TRADICIONAL_ORIGINAL",
+          "productName": "Tradicional Original",
+          "ordenes": 77,
+          "cantidad": 91,
+          "ventas": 6825
+        },
+        {
+          "productCode": "TRICOLATTE",
+          "productName": "Tricolatte",
+          "ordenes": 9,
+          "cantidad": 10,
+          "ventas": 750
+        },
+        {
+          "productCode": "TRUFELLA",
+          "productName": "Trufella",
+          "ordenes": 31,
+          "cantidad": 33,
+          "ventas": 2640
+        },
+        {
+          "productCode": "TURBO_ORIGINAL",
+          "productName": "Turbo Original",
+          "ordenes": 17,
+          "cantidad": 21,
+          "ventas": 2160
+        }
+      ],
+      "modificadoresVendidos": [
+        {
+          "modifierName": "Base Flat Chocolate",
+          "ordenes": 12,
+          "cantidad": 14,
+          "ventas": 0
+        },
+        {
+          "modifierName": "Base Flat Lechisimo",
+          "ordenes": 4,
+          "cantidad": 4,
+          "ventas": 0
+        },
+        {
+          "modifierName": "Base Flat Maracuya",
+          "ordenes": 15,
+          "cantidad": 17,
+          "ventas": 0
+        },
+        {
+          "modifierName": "Base Flat Yogurth Griego",
+          "ordenes": 11,
+          "cantidad": 12,
+          "ventas": 0
+        },
+        {
+          "modifierName": "Base Original Chocolate",
+          "ordenes": 68,
+          "cantidad": 76,
+          "ventas": 0
+        },
+        {
+          "modifierName": "Base Original Coco",
+          "ordenes": 31,
+          "cantidad": 34,
+          "ventas": 0
+        },
+        {
+          "modifierName": "Base Original Fresa",
+          "ordenes": 49,
+          "cantidad": 57,
+          "ventas": 0
+        },
+        {
+          "modifierName": "Base Original Lechisimo",
+          "ordenes": 89,
+          "cantidad": 98,
+          "ventas": 0
+        },
+        {
+          "modifierName": "Base Original Mora",
+          "ordenes": 14,
+          "cantidad": 16,
+          "ventas": 0
+        },
+        {
+          "modifierName": "Base Original Yogurth Griego",
+          "ordenes": 88,
+          "cantidad": 101,
+          "ventas": 0
+        },
+        {
+          "modifierName": "Cobertura Chocolate Blanco",
+          "ordenes": 14,
+          "cantidad": 18,
+          "ventas": 0
+        },
+        {
+          "modifierName": "Cobertura Chocolate Blanco",
+          "ordenes": 44,
+          "cantidad": 46,
+          "ventas": 0
+        },
+        {
+          "modifierName": "Cobertura Chocolate Blanco con Almendras",
+          "ordenes": 3,
+          "cantidad": 3,
+          "ventas": 0
+        },
+        {
+          "modifierName": "Cobertura Chocolate Blanco con Almendras",
+          "ordenes": 63,
+          "cantidad": 75,
+          "ventas": 0
+        },
+        {
+          "modifierName": "Cobertura Chocolate con Leche",
+          "ordenes": 3,
+          "cantidad": 3,
+          "ventas": 0
+        },
+        {
+          "modifierName": "Cobertura Chocolate con Leche",
+          "ordenes": 43,
+          "cantidad": 51,
+          "ventas": 0
+        },
+        {
+          "modifierName": "Cobertura Chocolate Semi Amargo",
+          "ordenes": 1,
+          "cantidad": 1,
+          "ventas": 0
+        },
+        {
+          "modifierName": "Cobertura Chocolate Semi Amargo",
+          "ordenes": 44,
+          "cantidad": 49,
+          "ventas": 0
+        },
+        {
+          "modifierName": "Cobertura Crocante de Avellanas",
+          "ordenes": 10,
+          "cantidad": 13,
+          "ventas": 0
+        },
+        {
+          "modifierName": "Cobertura Crocante de Avellanas",
+          "ordenes": 100,
+          "cantidad": 112,
+          "ventas": 0
+        },
+        {
+          "modifierName": "Cobertura Crocante de Pistache",
+          "ordenes": 4,
+          "cantidad": 4,
+          "ventas": 40
+        },
+        {
+          "modifierName": "Cobertura Crocante de Pistache",
+          "ordenes": 41,
+          "cantidad": 46,
+          "ventas": 460
+        },
+        {
+          "modifierName": "Fresa",
+          "ordenes": 39,
+          "cantidad": 43,
+          "ventas": 0
+        },
+        {
+          "modifierName": "Mora",
+          "ordenes": 10,
+          "cantidad": 11,
+          "ventas": 0
+        },
+        {
+          "modifierName": "Relleno Buono",
+          "ordenes": 72,
+          "cantidad": 91,
+          "ventas": 0
+        },
+        {
+          "modifierName": "Relleno Chocolate Blanco",
+          "ordenes": 18,
+          "cantidad": 20,
+          "ventas": 0
+        },
+        {
+          "modifierName": "Relleno Chocolate con Leche",
+          "ordenes": 16,
+          "cantidad": 16,
+          "ventas": 0
+        },
+        {
+          "modifierName": "Relleno Chocolate Semi Amargo",
+          "ordenes": 23,
+          "cantidad": 25,
+          "ventas": 0
+        },
+        {
+          "modifierName": "Relleno Lechera",
+          "ordenes": 30,
+          "cantidad": 32,
+          "ventas": 0
+        },
+        {
+          "modifierName": "Relleno Lechisimo",
+          "ordenes": 9,
+          "cantidad": 9,
+          "ventas": 0
+        },
+        {
+          "modifierName": "Relleno Nutella",
+          "ordenes": 78,
+          "cantidad": 89,
+          "ventas": 0
+        },
+        {
+          "modifierName": "Relleno Pistache",
+          "ordenes": 93,
+          "cantidad": 100,
+          "ventas": 500
+        },
+        {
+          "modifierName": "Yogurth Griego",
+          "ordenes": 35,
+          "cantidad": 37,
+          "ventas": 0
+        }
+      ],
+      "metodosDePago": [
+        {
+          "paymentMethod": "Cash",
+          "channel": "POS",
+          "ordenes": 300,
+          "ventas": 34160
+        },
+        {
+          "paymentMethod": "Terminal-Manual",
+          "channel": "POS",
+          "ordenes": 204,
+          "ventas": 25670
+        }
+      ]
+    },
+    {
+      "branchCode": "ELDORADO_VER",
+      "branchName": "El Dorado Veracruz",
+      "kpis": {
+        "ordenes": 433,
+        "ventas": 55630,
+        "ticketPromedio": 128.48
+      },
+      "productosVendidos": [
+        {
+          "productCode": "AGUA_NATURAL_600_ML",
+          "productName": "Agua Natural 600 ml",
+          "ordenes": 1,
+          "cantidad": 2,
+          "ventas": 40
+        },
+        {
+          "productCode": "CHOCO_CROCANTE",
+          "productName": "Choco Crocante",
+          "ordenes": 34,
+          "cantidad": 41,
+          "ventas": 3280
+        },
+        {
+          "productCode": "CHOCOBLANCO",
+          "productName": "Chocoblanco",
+          "ordenes": 9,
+          "cantidad": 10,
+          "ventas": 650
+        },
+        {
+          "productCode": "CHOCOLATUDO",
+          "productName": "Chocolatudo",
+          "ordenes": 23,
+          "cantidad": 24,
+          "ventas": 2400
+        },
+        {
+          "productCode": "DULCE_CROCANTE",
+          "productName": "Dulce Crocante",
+          "ordenes": 13,
+          "cantidad": 13,
+          "ventas": 1040
+        },
+        {
+          "productCode": "ESPECIAL_FLAT",
+          "productName": "Especial Flat",
+          "ordenes": 40,
+          "cantidad": 45,
+          "ventas": 2965
+        },
+        {
+          "productCode": "ESPECIAL_ORIGINAL",
+          "productName": "Especial Original",
+          "ordenes": 239,
+          "cantidad": 351,
+          "ventas": 28880
+        },
+        {
+          "productCode": "FRESADO",
+          "productName": "Fresado",
+          "ordenes": 6,
+          "cantidad": 6,
+          "ventas": 600
+        },
+        {
+          "productCode": "FRESH",
+          "productName": "Fresh",
+          "ordenes": 5,
+          "cantidad": 6,
+          "ventas": 390
+        },
+        {
+          "productCode": "LECHE_CRISPI",
+          "productName": "Leche Crispi",
+          "ordenes": 21,
+          "cantidad": 24,
+          "ventas": 1560
+        },
+        {
+          "productCode": "PISTACHE",
+          "productName": "Pistache",
+          "ordenes": 19,
+          "cantidad": 19,
+          "ventas": 1615
+        },
+        {
+          "productCode": "TRADICIONAL_FLAT",
+          "productName": "Tradicional Flat",
+          "ordenes": 28,
+          "cantidad": 32,
+          "ventas": 1760
+        },
+        {
+          "productCode": "TRADICIONAL_ORIGINAL",
+          "productName": "Tradicional Original",
+          "ordenes": 62,
+          "cantidad": 72,
+          "ventas": 5400
+        },
+        {
+          "productCode": "TRICOLATTE",
+          "productName": "Tricolatte",
+          "ordenes": 4,
+          "cantidad": 6,
+          "ventas": 450
+        },
+        {
+          "productCode": "TRUFELLA",
+          "productName": "Trufella",
+          "ordenes": 18,
+          "cantidad": 20,
+          "ventas": 1600
+        },
+        {
+          "productCode": "TURBO_ORIGINAL",
+          "productName": "Turbo Original",
+          "ordenes": 23,
+          "cantidad": 29,
+          "ventas": 3000
+        }
+      ],
+      "modificadoresVendidos": [
+        {
+          "modifierName": "Base Flat Chocolate",
+          "ordenes": 13,
+          "cantidad": 14,
+          "ventas": 0
+        },
+        {
+          "modifierName": "Base Flat Lechisimo",
+          "ordenes": 7,
+          "cantidad": 7,
+          "ventas": 0
+        },
+        {
+          "modifierName": "Base Flat Maracuya",
+          "ordenes": 12,
+          "cantidad": 12,
+          "ventas": 0
+        },
+        {
+          "modifierName": "Base Flat Yogurth Griego",
+          "ordenes": 38,
+          "cantidad": 44,
+          "ventas": 0
+        },
+        {
+          "modifierName": "Base Original Chocolate",
+          "ordenes": 50,
+          "cantidad": 62,
+          "ventas": 0
+        },
+        {
+          "modifierName": "Base Original Coco",
+          "ordenes": 26,
+          "cantidad": 31,
+          "ventas": 0
+        },
+        {
+          "modifierName": "Base Original Fresa",
+          "ordenes": 48,
+          "cantidad": 53,
+          "ventas": 0
+        },
+        {
+          "modifierName": "Base Original Lechisimo",
+          "ordenes": 73,
+          "cantidad": 89,
+          "ventas": 0
+        },
+        {
+          "modifierName": "Base Original Mora",
+          "ordenes": 13,
+          "cantidad": 14,
+          "ventas": 0
+        },
+        {
+          "modifierName": "Base Original Yogurth Griego",
+          "ordenes": 104,
+          "cantidad": 131,
+          "ventas": 0
+        },
+        {
+          "modifierName": "Cobertura Chocolate Blanco",
+          "ordenes": 18,
+          "cantidad": 23,
+          "ventas": 0
+        },
+        {
+          "modifierName": "Cobertura Chocolate Blanco",
+          "ordenes": 54,
+          "cantidad": 62,
+          "ventas": 0
+        },
+        {
+          "modifierName": "Cobertura Chocolate Blanco con Almendras",
+          "ordenes": 3,
+          "cantidad": 3,
+          "ventas": 0
+        },
+        {
+          "modifierName": "Cobertura Chocolate Blanco con Almendras",
+          "ordenes": 55,
+          "cantidad": 58,
+          "ventas": 0
+        },
+        {
+          "modifierName": "Cobertura Chocolate con Leche",
+          "ordenes": 6,
+          "cantidad": 8,
+          "ventas": 0
+        },
+        {
+          "modifierName": "Cobertura Chocolate con Leche",
+          "ordenes": 45,
+          "cantidad": 51,
+          "ventas": 0
+        },
+        {
+          "modifierName": "Cobertura Chocolate Semi Amargo",
+          "ordenes": 2,
+          "cantidad": 3,
+          "ventas": 0
+        },
+        {
+          "modifierName": "Cobertura Chocolate Semi Amargo",
+          "ordenes": 58,
+          "cantidad": 68,
+          "ventas": 0
+        },
+        {
+          "modifierName": "Cobertura Crocante de Avellanas",
+          "ordenes": 12,
+          "cantidad": 14,
+          "ventas": 0
+        },
+        {
+          "modifierName": "Cobertura Crocante de Avellanas",
+          "ordenes": 89,
+          "cantidad": 108,
+          "ventas": 0
+        },
+        {
+          "modifierName": "Cobertura Crocante de Pistache",
+          "ordenes": 6,
+          "cantidad": 7,
+          "ventas": 70
+        },
+        {
+          "modifierName": "Cobertura Crocante de Pistache",
+          "ordenes": 41,
+          "cantidad": 49,
+          "ventas": 490
+        },
+        {
+          "modifierName": "Fresa",
+          "ordenes": 36,
+          "cantidad": 40,
+          "ventas": 0
+        },
+        {
+          "modifierName": "Mora",
+          "ordenes": 10,
+          "cantidad": 10,
+          "ventas": 0
+        },
+        {
+          "modifierName": "Relleno Buono",
+          "ordenes": 101,
+          "cantidad": 117,
+          "ventas": 0
+        },
+        {
+          "modifierName": "Relleno Chocolate Blanco",
+          "ordenes": 6,
+          "cantidad": 6,
+          "ventas": 0
+        },
+        {
+          "modifierName": "Relleno Chocolate con Leche",
+          "ordenes": 5,
+          "cantidad": 5,
+          "ventas": 0
+        },
+        {
+          "modifierName": "Relleno Chocolate Semi Amargo",
+          "ordenes": 23,
+          "cantidad": 27,
+          "ventas": 0
+        },
+        {
+          "modifierName": "Relleno Lechera",
+          "ordenes": 23,
+          "cantidad": 27,
+          "ventas": 0
+        },
+        {
+          "modifierName": "Relleno Lechisimo",
+          "ordenes": 8,
+          "cantidad": 8,
+          "ventas": 0
+        },
+        {
+          "modifierName": "Relleno Nutella",
+          "ordenes": 97,
+          "cantidad": 114,
+          "ventas": 0
+        },
+        {
+          "modifierName": "Relleno Pistache",
+          "ordenes": 63,
+          "cantidad": 76,
+          "ventas": 380
+        },
+        {
+          "modifierName": "Yogurth Griego",
+          "ordenes": 21,
+          "cantidad": 22,
+          "ventas": 0
+        }
+      ],
+      "metodosDePago": [
+        {
+          "paymentMethod": "Cash",
+          "channel": "POS",
+          "ordenes": 242,
+          "ventas": 29125
+        },
+        {
+          "paymentMethod": "Terminal-Manual",
+          "channel": "POS",
+          "ordenes": 191,
+          "ventas": 26505
+        }
+      ]
+    }
+  ]
+}

@@ -6,7 +6,7 @@ import { useBranchStore } from '../store/useBranchStore';
 import { exportToPDF, exportToExcelWithStyles } from '../utils/exportUtils';
 import { NeoSelect } from './NeoSelect';
 
-export function PurchaseOrderModal({ onClose, viewOrder }) {
+export function PurchaseOrderModal({ onClose, onSuccess, viewOrder }) {
   const { activeBranch } = useBranchStore();
   const [loading, setLoading] = useState(!viewOrder);
   const [inventoryData, setInventoryData] = useState([]);
@@ -202,7 +202,8 @@ export function PurchaseOrderModal({ onClose, viewOrder }) {
 
       alert("✅ Orden de Compra guardada y enviada correctamente.");
       handleExportExcel(); 
-      onClose(); 
+      if (onSuccess) onSuccess();
+      else onClose(); 
     } catch (err) {
       console.error("Error registrando orden:", err);
       alert("Hubo un error al guardar la orden de compra.");

@@ -50,12 +50,29 @@ serve(async (req) => {
       throw new Error('No puedes eliminar tu propia cuenta de administrador')
     }
 
-    // Delete user from auth.users (cascades to profiles, employee_credentials, etc.)
-    const { error: deleteError } = await supabaseClient.auth.admin.deleteUser(target_user_id)
+    // SOFT DELETE: Preservar historial de ventas/operaciones pero bloquear acceso
+    const { error: profileError } = await supabaseClient
+      .from('profiles')
+      .update({ is_active: false })
+      .eq('id', target_user_id)
 
-    if (deleteError) {
-      throw deleteError
-    }
+    if (profileError) throw profileError
+
+    // Eliminar credenciales para que no pueda entrar por NIP
+    const { error: credsError } = await supabaseClient
+      .from('employee_credentials')
+      .delete()
+      .eq('profile_id', target_user_id)
+
+    if (credsError) throw credsError
+
+    // Banear en Supabase Auth por seguridad (100 años)
+    const { error: banError } = await supabaseClient.auth.admin.updateUserById(
+      target_user_id, 
+      { ban_duration: '876000h' }
+    )
+
+    if (banError) throw banError
 
     return new Response(
       JSON.stringify({ success: true, message: 'Empleado revocado y eliminado correctamente' }),

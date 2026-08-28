@@ -193,6 +193,7 @@ function EmpleadosTab() {
             roles(code)
           )
         `)
+        .eq('is_active', true)
         .order('created_at', { ascending: false });
         
       if (error && error.code !== 'PGRST205') throw error;

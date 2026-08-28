@@ -9,9 +9,11 @@ import { NeoAdvancedFilter } from './NeoAdvancedFilter';
 import { NeoPagination } from './NeoPagination';
 import { NeoSelect } from './NeoSelect';
 import { AuthContext } from './ProtectedRoute';
+import { useBranchStore } from '../store/useBranchStore';
 
-export function PurchaseOrderHistory() {
+export function PurchaseOrderHistory({ refreshTrigger = 0 }) {
   const { isAdmin, session } = useContext(AuthContext);
+  const { activeBranch } = useBranchStore();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [branches, setBranches] = useState({});
@@ -29,7 +31,7 @@ export function PurchaseOrderHistory() {
 
   useEffect(() => {
     fetchOrders();
-  }, [page, pageSize, globalSearch, advancedFilters]);
+  }, [page, pageSize, globalSearch, advancedFilters, activeBranch?.id, refreshTrigger]);
 
   const fetchBranches = async () => {
     const { data } = await supabase.from('branches').select('id, name, organization_id');
@@ -55,6 +57,9 @@ export function PurchaseOrderHistory() {
         }
         query = query.limit(3);
       } else {
+        if (activeBranch) {
+          query = query.eq('branch_id', activeBranch.id);
+        }
         // Advanced Filters
         if (advancedFilters.status) {
           query = query.eq('status', advancedFilters.status);
@@ -64,9 +69,6 @@ export function PurchaseOrderHistory() {
         }
         if (advancedFilters.date_to) {
           query = query.lte('created_at', advancedFilters.date_to + 'T23:59:59');
-        }
-        if (advancedFilters.branch) {
-          query = query.eq('branch_id', advancedFilters.branch);
         }
 
         // Global Search
@@ -93,9 +95,78 @@ export function PurchaseOrderHistory() {
     }
   };
 
+  const generateExpenseFromOrder = async (order) => {
+    try {
+      // 1. Verificar si ya existe el gasto (por folio)
+      const folioStr = order.id.slice(0, 8);
+      const { data: existingExpense } = await supabase
+        .from('expenses')
+        .select('id')
+        .eq('folio', folioStr)
+        .maybeSingle();
+      
+      if (existingExpense) {
+        console.log("El gasto de esta orden ya fue registrado previamente.");
+        return;
+      }
+
+      // 2. Traer los precios (box_price) más actuales de los productos
+      const { data: productsData, error: pError } = await supabase.from('products').select('id, box_price');
+      if (pError || !productsData) throw new Error("No se pudieron obtener los precios de los productos.");
+
+      let totalCost = 0;
+      const { orderState } = order.order_data;
+      
+      // Multiplicar cantidad ordenada por box_price
+      Object.entries(orderState).forEach(([productId, qty]) => {
+        if (qty > 0) {
+          const product = productsData.find(p => p.id === productId);
+          if (product && product.box_price) {
+            totalCost += (qty * product.box_price);
+          }
+        }
+      });
+
+      // Si tiene costo, insertar en el Estado de Resultados (expenses)
+      if (totalCost > 0) {
+        // Fix: Use MX time to avoid UTC shifting into tomorrow
+        const mxDate = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Mexico_City" }));
+        const yyyy = mxDate.getFullYear();
+        const mm = String(mxDate.getMonth() + 1).padStart(2, '0');
+        const dd = String(mxDate.getDate()).padStart(2, '0');
+        const mxDateStr = `${yyyy}-${mm}-${dd}`;
+
+        const { error: expenseError } = await supabase
+          .from('expenses')
+          .insert({
+            branch_id: order.branch_id,
+            date: mxDateStr,
+            category: `PEDIDO ${folioStr.toUpperCase()}`,
+            concept: 'Materia Prima e Insumos',
+            establishment: 'PROVEEDOR CENTRAL',
+            amount: totalCost,
+            folio: folioStr,
+            payment_method: 'TRANSFERENCIA',
+            responsible: session?.user?.email || 'Sistema Automático'
+          });
+
+        if (expenseError) throw expenseError;
+        console.log(`Gasto automático registrado por $${totalCost} para la orden ${folioStr}`);
+      }
+    } catch (err) {
+      console.error("Error al registrar gasto automático:", err);
+      alert("Hubo un problema registrando el gasto en el Estado de Resultados.");
+    }
+  };
+
   const handleStatusChange = async (order, newStatus) => {
     if (order.status === 'ENTREGADA') {
       alert("Esta orden ya fue entregada y sumada al inventario. No se puede modificar.");
+      return;
+    }
+
+    if (order.status === 'RECHAZADA') {
+      alert("Esta orden fue rechazada y ha quedado cancelada permanentemente. No se puede modificar.");
       return;
     }
 
@@ -104,8 +175,14 @@ export function PurchaseOrderHistory() {
     let justification = null;
 
     if (newStatus === 'RECHAZADA') {
-      justification = window.prompt("Por favor, ingresa el motivo del rechazo:");
-      if (justification === null) return; // Canceló el prompt
+      const confirm = window.confirm("🚨 ¡ATENCIÓN! 🚨\n\nAl marcar esta orden como RECHAZADA, quedará cancelada permanentemente y NO podrá volver a activarse en el futuro.\n\n¿Estás seguro de que deseas rechazarla?");
+      if (!confirm) return;
+
+      justification = window.prompt("Por favor, ingresa el motivo del rechazo (Obligatorio):");
+      if (!justification || justification.trim() === '') {
+        alert("El motivo de rechazo es obligatorio. Se canceló la operación.");
+        return; 
+      }
     }
 
     if (newStatus === 'ENTREGADA') {
@@ -136,6 +213,12 @@ export function PurchaseOrderHistory() {
 
       if (error) throw error;
       
+      // Si la orden se autoriza, registrar el gasto financiero
+      if (newStatus === 'ACEPTADA') {
+        await generateExpenseFromOrder(order);
+        alert("✅ Orden autorizada. El gasto ha sido registrado en el Estado de Resultados (Finanzas).");
+      }
+
       if (newStatus === 'ENTREGADA') {
         alert("✅ ¡Inventario actualizado con éxito! La mercancía ya está en la sucursal.");
       }
@@ -250,8 +333,7 @@ export function PurchaseOrderHistory() {
                 {val: 'ACEPTADA', label: 'ACEPTADA'},
                 {val: 'RECHAZADA', label: 'RECHAZADA'},
                 {val: 'ENTREGADA', label: 'ENTREGADA'}
-              ] },
-              { id: 'branch', label: 'Sucursal', type: 'select', options: Object.entries(branches).map(([id, b]) => ({val: id, label: b.name})) }
+              ] }
             ]}
           />
         </div>
@@ -266,8 +348,13 @@ export function PurchaseOrderHistory() {
         orders.map((order, index) => (
           <div key={order.id} className="neo-surface fade-in" style={{ padding: '24px', borderRadius: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderLeft: `6px solid ${getStatusColor(order.status)}`, position: 'relative', zIndex: orders.length - index }}>
             <div>
-              <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '4px' }}>
-                {new Date(order.created_at).toLocaleString('es-MX', { dateStyle: 'long', timeStyle: 'short' })}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
+                <span style={{ fontSize: '0.9rem', fontWeight: 'bold', color: 'var(--primary-color)' }}>
+                  FOLIO: {order.id.slice(0, 8).toUpperCase()}
+                </span>
+                <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                  • {new Date(order.created_at).toLocaleString('es-MX', { dateStyle: 'long', timeStyle: 'short' })}
+                </span>
               </div>
               <h3 style={{ margin: '0 0 8px 0', color: 'var(--text-primary)', fontSize: '1.2rem' }}>
                 Sucursal: {branches[order.branch_id]?.name || 'Cargando...'}
